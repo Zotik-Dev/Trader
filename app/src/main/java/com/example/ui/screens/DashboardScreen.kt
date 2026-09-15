@@ -22,10 +22,12 @@ import androidx.compose.ui.unit.sp
 import com.example.model.DateFilter
 import com.example.model.Instrument
 import com.example.ui.components.DailyPnLBarChart
+import com.example.ui.components.MonthYearPickerDialog
 import com.example.ui.components.PnLCard
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.TradeViewModel
 import com.example.util.TradeCalculations
+import java.text.DateFormatSymbols
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,6 +46,22 @@ fun DashboardScreen(
     val setupAnalytics by viewModel.setupAnalytics.collectAsState()
     val allTrades by viewModel.allTrades.collectAsState()
     val dateFilter by viewModel.dateFilter.collectAsState()
+    val selectedYear by viewModel.selectedYear.collectAsState()
+    val selectedMonth by viewModel.selectedMonth.collectAsState()
+
+    var showMonthYearPicker by remember { mutableStateOf(false) }
+
+    if (showMonthYearPicker) {
+        MonthYearPickerDialog(
+            initialYear = selectedYear,
+            initialMonth = selectedMonth,
+            onDismiss = { showMonthYearPicker = false },
+            onConfirm = { year, month ->
+                viewModel.setCustomMonthYear(year, month)
+                showMonthYearPicker = false
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -159,10 +177,39 @@ fun DashboardScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(DateFilter.entries) { filter ->
+                        val isSelected = dateFilter == filter
+                        val labelText = if (filter == DateFilter.CUSTOM_MONTH_YEAR && isSelected) {
+                            val monthName = DateFormatSymbols.getInstance().shortMonths.getOrNull(selectedMonth) ?: ""
+                            "$monthName $selectedYear"
+                        } else {
+                            filter.label
+                        }
+
                         FilterChip(
-                            selected = dateFilter == filter,
-                            onClick = { viewModel.setDateFilter(filter) },
-                            label = { Text(filter.label, fontSize = 12.sp) }
+                            selected = isSelected,
+                            onClick = {
+                                if (filter == DateFilter.CUSTOM_MONTH_YEAR) {
+                                    showMonthYearPicker = true
+                                } else {
+                                    viewModel.setDateFilter(filter)
+                                }
+                            },
+                            leadingIcon = if (filter == DateFilter.CUSTOM_MONTH_YEAR) {
+                                {
+                                    Icon(
+                                        Icons.Default.CalendarMonth,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            } else null,
+                            label = {
+                                Text(
+                                    labelText,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                )
+                            }
                         )
                     }
                 }
@@ -181,7 +228,7 @@ fun DashboardScreen(
                 )
             }
 
-            // 3-card metrics row: Today, Week, Month P&L
+            // Period Performance Metrics: Row 1 (Today, This Week, This Month)
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -203,6 +250,33 @@ fun DashboardScreen(
                         title = "This Month",
                         value = TradeCalculations.formatCurrency(summary.thisMonthPnL),
                         isPositive = summary.thisMonthPnL >= 0,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+
+            // Period Performance Metrics: Row 2 (Last Month, This Year, Last Year)
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    MetricBox(
+                        title = "Last Month",
+                        value = TradeCalculations.formatCurrency(summary.lastMonthPnL),
+                        isPositive = summary.lastMonthPnL >= 0,
+                        modifier = Modifier.weight(1f)
+                    )
+                    MetricBox(
+                        title = "This Year",
+                        value = TradeCalculations.formatCurrency(summary.thisYearPnL),
+                        isPositive = summary.thisYearPnL >= 0,
+                        modifier = Modifier.weight(1f)
+                    )
+                    MetricBox(
+                        title = "Last Year",
+                        value = TradeCalculations.formatCurrency(summary.lastYearPnL),
+                        isPositive = summary.lastYearPnL >= 0,
                         modifier = Modifier.weight(1f)
                     )
                 }

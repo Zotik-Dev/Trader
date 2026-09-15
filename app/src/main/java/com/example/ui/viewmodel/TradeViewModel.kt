@@ -16,6 +16,7 @@ import com.example.model.Emotion
 import com.example.model.EmotionPerformance
 import com.example.model.InstrumentPerformance
 import com.example.model.MonthlyPnL
+import com.example.model.YearlyPnL
 import com.example.model.SetupPerformance
 import com.example.model.TradingSummary
 import com.example.util.BackupManager
@@ -40,7 +41,9 @@ data class TradeFilterState(
     val instrument: String = "All",
     val outcome: String = "All",
     val setup: String = "All",
-    val dateRange: DateFilter = DateFilter.ALL
+    val dateRange: DateFilter = DateFilter.ALL,
+    val selectedYear: Int = Calendar.getInstance().get(Calendar.YEAR),
+    val selectedMonth: Int = Calendar.getInstance().get(Calendar.MONTH)
 )
 
 class TradeViewModel(application: Application) : AndroidViewModel(application) {
@@ -81,28 +84,31 @@ class TradeViewModel(application: Application) : AndroidViewModel(application) {
         .map { it.dateRange }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DateFilter.ALL)
 
+    val selectedYear: StateFlow<Int> = _filters
+        .map { it.selectedYear }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Calendar.getInstance().get(Calendar.YEAR))
+
+    val selectedMonth: StateFlow<Int> = _filters
+        .map { it.selectedMonth }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Calendar.getInstance().get(Calendar.MONTH))
+
+    val availableYears: StateFlow<List<Int>> = allTrades.map { trades ->
+        val currentYear = Calendar.getInstance().get(Calendar.YEAR)
+        val tradeYears = trades.map {
+            val cal = Calendar.getInstance()
+            cal.timeInMillis = it.entryTimestamp
+            cal.get(Calendar.YEAR)
+        }.distinct()
+        (tradeYears + currentYear + (currentYear - 1)).distinct().sortedDescending()
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), listOf(Calendar.getInstance().get(Calendar.YEAR)))
+
     private val _userMessage = MutableStateFlow<String?>(null)
     val userMessage = _userMessage.asStateFlow()
 
     // Filtered trades for list screen
     val filteredTrades: StateFlow<List<TradeEntity>> = combine(allTrades, _filters) { trades, filters ->
-        val now = System.currentTimeMillis()
-        val calendar = Calendar.getInstance()
-
-        calendar.timeInMillis = now
-        calendar.set(Calendar.HOUR_OF_DAY, 0)
-        calendar.set(Calendar.MINUTE, 0)
-        calendar.set(Calendar.SECOND, 0)
-        calendar.set(Calendar.MILLISECOND, 0)
-        val startOfToday = calendar.timeInMillis
-
-        calendar.set(Calendar.DAY_OF_WEEK, calendar.firstDayOfWeek)
-        val startOfWeek = calendar.timeInMillis
-
-        calendar.set(Calendar.DAY_OF_MONTH, 1)
-        val startOfMonth = calendar.timeInMillis
-
-        trades.filter { trade ->
+        val dateMatched = filterTradesByDate(trades, filters)
+        dateMatched.filter { trade ->
             // Query match
             val matchesQuery = filters.query.isBlank() ||
                     trade.instrument.contains(filters.query, ignoreCase = true) ||
@@ -124,15 +130,7 @@ class TradeViewModel(application: Application) : AndroidViewModel(application) {
             // Setup match
             val matchesSetup = filters.setup == "All" || trade.setup.equals(filters.setup, ignoreCase = true)
 
-            // Date match
-            val matchesDate = when (filters.dateRange) {
-                DateFilter.TODAY -> trade.entryTimestamp >= startOfToday
-                DateFilter.THIS_WEEK -> trade.entryTimestamp >= startOfWeek
-                DateFilter.THIS_MONTH -> trade.entryTimestamp >= startOfMonth
-                DateFilter.ALL -> true
-            }
-
-            matchesQuery && matchesInstrument && matchesOutcome && matchesSetup && matchesDate
+            matchesQuery && matchesInstrument && matchesOutcome && matchesSetup
         }
     }.stateIn(
         scope = viewModelScope,
@@ -142,7 +140,7 @@ class TradeViewModel(application: Application) : AndroidViewModel(application) {
 
     // Summary calculation
     val summary: StateFlow<TradingSummary> = combine(allTrades, _filters) { trades, filters ->
-        computeSummary(filterTradesByDate(trades, filters.dateRange))
+        computeSummary(filterTradesByDate(trades, filters), trades)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -151,14 +149,14 @@ class TradeViewModel(application: Application) : AndroidViewModel(application) {
 
     // Daily PnL for chart
     val dailyPnLList: StateFlow<List<DailyPnL>> = combine(allTrades, _filters) { trades, filters ->
-        computeDailyPnL(filterTradesByDate(trades, filters.dateRange))
+        computeDailyPnL(filterTradesByDate(trades, filters))
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = emptyList()
     )
 
-    // Monthly PnL for chart
+    // Monthly PnL for chart & breakdown
     val monthlyPnLList: StateFlow<List<MonthlyPnL>> = combine(allTrades, _filters) { trades, _ ->
         computeMonthlyPnL(trades)
     }.stateIn(
@@ -167,9 +165,18 @@ class TradeViewModel(application: Application) : AndroidViewModel(application) {
         initialValue = emptyList()
     )
 
+    // Yearly PnL for breakdown
+    val yearlyPnLList: StateFlow<List<YearlyPnL>> = combine(allTrades, _filters) { trades, _ ->
+        computeYearlyPnL(trades)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
     // Setup performance
     val setupAnalytics: StateFlow<List<SetupPerformance>> = combine(allTrades, _filters) { trades, filters ->
-        computeSetupAnalytics(filterTradesByDate(trades, filters.dateRange))
+        computeSetupAnalytics(filterTradesByDate(trades, filters))
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -178,7 +185,7 @@ class TradeViewModel(application: Application) : AndroidViewModel(application) {
 
     // Instrument performance
     val instrumentAnalytics: StateFlow<List<InstrumentPerformance>> = combine(allTrades, _filters) { trades, filters ->
-        computeInstrumentAnalytics(filterTradesByDate(trades, filters.dateRange))
+        computeInstrumentAnalytics(filterTradesByDate(trades, filters))
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -187,14 +194,14 @@ class TradeViewModel(application: Application) : AndroidViewModel(application) {
 
     // Emotion performance
     val emotionAnalytics: StateFlow<List<EmotionPerformance>> = combine(allTrades, _filters) { trades, filters ->
-        computeEmotionAnalytics(filterTradesByDate(trades, filters.dateRange))
+        computeEmotionAnalytics(filterTradesByDate(trades, filters))
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = emptyList()
     )
 
-    private fun filterTradesByDate(trades: List<TradeEntity>, dateRange: DateFilter): List<TradeEntity> {
+    private fun filterTradesByDate(trades: List<TradeEntity>, filters: TradeFilterState): List<TradeEntity> {
         val now = System.currentTimeMillis()
         val calendar = Calendar.getInstance()
         calendar.timeInMillis = now
@@ -210,10 +217,86 @@ class TradeViewModel(application: Application) : AndroidViewModel(application) {
         calendar.set(Calendar.DAY_OF_MONTH, 1)
         val startOfMonth = calendar.timeInMillis
 
-        return when (dateRange) {
+        // Last month bounds
+        val calLastMonthStart = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+            add(Calendar.MONTH, -1)
+            set(Calendar.DAY_OF_MONTH, 1)
+        }
+        val startOfLastMonth = calLastMonthStart.timeInMillis
+
+        val calLastMonthEnd = Calendar.getInstance().apply {
+            set(Calendar.DAY_OF_MONTH, 1)
+            add(Calendar.DAY_OF_MONTH, -1)
+            set(Calendar.HOUR_OF_DAY, 23)
+            set(Calendar.MINUTE, 59)
+            set(Calendar.SECOND, 59)
+            set(Calendar.MILLISECOND, 999)
+        }
+        val endOfLastMonth = calLastMonthEnd.timeInMillis
+
+        // This year bounds
+        val calThisYearStart = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+            set(Calendar.MONTH, Calendar.JANUARY)
+            set(Calendar.DAY_OF_MONTH, 1)
+        }
+        val startOfThisYear = calThisYearStart.timeInMillis
+
+        // Last year bounds
+        val calLastYearStart = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+            add(Calendar.YEAR, -1)
+            set(Calendar.MONTH, Calendar.JANUARY)
+            set(Calendar.DAY_OF_MONTH, 1)
+        }
+        val calLastYearEnd = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 23)
+            set(Calendar.MINUTE, 59)
+            set(Calendar.SECOND, 59)
+            set(Calendar.MILLISECOND, 999)
+            add(Calendar.YEAR, -1)
+            set(Calendar.MONTH, Calendar.DECEMBER)
+            set(Calendar.DAY_OF_MONTH, 31)
+        }
+
+        return when (filters.dateRange) {
             DateFilter.TODAY -> trades.filter { it.entryTimestamp >= startOfToday }
             DateFilter.THIS_WEEK -> trades.filter { it.entryTimestamp >= startOfWeek }
             DateFilter.THIS_MONTH -> trades.filter { it.entryTimestamp >= startOfMonth }
+            DateFilter.LAST_MONTH -> trades.filter { it.entryTimestamp in startOfLastMonth..endOfLastMonth }
+            DateFilter.THIS_YEAR -> trades.filter { it.entryTimestamp >= startOfThisYear }
+            DateFilter.LAST_YEAR -> trades.filter { it.entryTimestamp in calLastYearStart.timeInMillis..calLastYearEnd.timeInMillis }
+            DateFilter.CUSTOM_MONTH_YEAR -> {
+                val calCustomStart = Calendar.getInstance().apply {
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                    set(Calendar.YEAR, filters.selectedYear)
+                    set(Calendar.MONTH, filters.selectedMonth)
+                    set(Calendar.DAY_OF_MONTH, 1)
+                }
+                val calCustomEnd = Calendar.getInstance().apply {
+                    set(Calendar.YEAR, filters.selectedYear)
+                    set(Calendar.MONTH, filters.selectedMonth)
+                    set(Calendar.DAY_OF_MONTH, calCustomStart.getActualMaximum(Calendar.DAY_OF_MONTH))
+                    set(Calendar.HOUR_OF_DAY, 23)
+                    set(Calendar.MINUTE, 59)
+                    set(Calendar.SECOND, 59)
+                    set(Calendar.MILLISECOND, 999)
+                }
+                trades.filter { it.entryTimestamp in calCustomStart.timeInMillis..calCustomEnd.timeInMillis }
+            }
             DateFilter.ALL -> trades
         }
     }
@@ -236,6 +319,16 @@ class TradeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setDateFilter(filter: DateFilter) {
         _filters.update { it.copy(dateRange = filter) }
+    }
+
+    fun setCustomMonthYear(year: Int, month: Int) {
+        _filters.update {
+            it.copy(
+                dateRange = DateFilter.CUSTOM_MONTH_YEAR,
+                selectedYear = year,
+                selectedMonth = month
+            )
+        }
     }
 
     fun clearUserMessage() {
@@ -331,19 +424,17 @@ class TradeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun computeSummary(trades: List<TradeEntity>): TradingSummary {
-        if (trades.isEmpty()) return TradingSummary()
-
-        val closedTrades = trades.filter { it.status != "OPEN" }
-        val totalTrades = trades.size
+    private fun computeSummary(filteredTrades: List<TradeEntity>, allTrades: List<TradeEntity>): TradingSummary {
+        val closedTrades = filteredTrades.filter { it.status != "OPEN" }
+        val totalTrades = filteredTrades.size
         val winTrades = closedTrades.count { it.netPnL > 0 }
         val lossTrades = closedTrades.count { it.netPnL < 0 }
         val breakEvenTrades = closedTrades.count { it.netPnL == 0.0 }
         val winRate = if (closedTrades.isNotEmpty()) (winTrades.toDouble() / closedTrades.size) * 100.0 else 0.0
 
-        val grossPnL = trades.sumOf { it.grossPnL }
-        val totalCharges = trades.sumOf { it.charges }
-        val netPnL = trades.sumOf { it.netPnL }
+        val grossPnL = filteredTrades.sumOf { it.grossPnL }
+        val totalCharges = filteredTrades.sumOf { it.charges }
+        val netPnL = filteredTrades.sumOf { it.netPnL }
 
         val totalGains = closedTrades.filter { it.netPnL > 0 }.sumOf { it.netPnL }
         val totalLosses = Math.abs(closedTrades.filter { it.netPnL < 0 }.sumOf { it.netPnL })
@@ -373,9 +464,64 @@ class TradeViewModel(application: Application) : AndroidViewModel(application) {
         cal.set(Calendar.DAY_OF_MONTH, 1)
         val startOfMonth = cal.timeInMillis
 
-        val todayPnL = trades.filter { it.entryTimestamp >= startOfToday }.sumOf { it.netPnL }
-        val thisWeekPnL = trades.filter { it.entryTimestamp >= startOfWeek }.sumOf { it.netPnL }
-        val thisMonthPnL = trades.filter { it.entryTimestamp >= startOfMonth }.sumOf { it.netPnL }
+        // Last month bounds
+        val calLastMonthStart = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+            add(Calendar.MONTH, -1)
+            set(Calendar.DAY_OF_MONTH, 1)
+        }
+        val startOfLastMonth = calLastMonthStart.timeInMillis
+
+        val calLastMonthEnd = Calendar.getInstance().apply {
+            set(Calendar.DAY_OF_MONTH, 1)
+            add(Calendar.DAY_OF_MONTH, -1)
+            set(Calendar.HOUR_OF_DAY, 23)
+            set(Calendar.MINUTE, 59)
+            set(Calendar.SECOND, 59)
+            set(Calendar.MILLISECOND, 999)
+        }
+        val endOfLastMonth = calLastMonthEnd.timeInMillis
+
+        // This year bounds
+        val calThisYearStart = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+            set(Calendar.MONTH, Calendar.JANUARY)
+            set(Calendar.DAY_OF_MONTH, 1)
+        }
+        val startOfThisYear = calThisYearStart.timeInMillis
+
+        // Last year bounds
+        val calLastYearStart = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+            add(Calendar.YEAR, -1)
+            set(Calendar.MONTH, Calendar.JANUARY)
+            set(Calendar.DAY_OF_MONTH, 1)
+        }
+        val calLastYearEnd = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 23)
+            set(Calendar.MINUTE, 59)
+            set(Calendar.SECOND, 59)
+            set(Calendar.MILLISECOND, 999)
+            add(Calendar.YEAR, -1)
+            set(Calendar.MONTH, Calendar.DECEMBER)
+            set(Calendar.DAY_OF_MONTH, 31)
+        }
+
+        val todayPnL = allTrades.filter { it.entryTimestamp >= startOfToday }.sumOf { it.netPnL }
+        val thisWeekPnL = allTrades.filter { it.entryTimestamp >= startOfWeek }.sumOf { it.netPnL }
+        val thisMonthPnL = allTrades.filter { it.entryTimestamp >= startOfMonth }.sumOf { it.netPnL }
+        val lastMonthPnL = allTrades.filter { it.entryTimestamp in startOfLastMonth..endOfLastMonth }.sumOf { it.netPnL }
+        val thisYearPnL = allTrades.filter { it.entryTimestamp >= startOfThisYear }.sumOf { it.netPnL }
+        val lastYearPnL = allTrades.filter { it.entryTimestamp in calLastYearStart.timeInMillis..calLastYearEnd.timeInMillis }.sumOf { it.netPnL }
 
         return TradingSummary(
             totalTrades = totalTrades,
@@ -394,7 +540,10 @@ class TradeViewModel(application: Application) : AndroidViewModel(application) {
             worstTradePnL = worstTrade,
             todayPnL = todayPnL,
             thisWeekPnL = thisWeekPnL,
-            thisMonthPnL = thisMonthPnL
+            thisMonthPnL = thisMonthPnL,
+            lastMonthPnL = lastMonthPnL,
+            thisYearPnL = thisYearPnL,
+            lastYearPnL = lastYearPnL
         )
     }
 
@@ -422,18 +571,37 @@ class TradeViewModel(application: Application) : AndroidViewModel(application) {
         val monthKeyFormat = SimpleDateFormat("yyyyMM", Locale.getDefault())
 
         val grouped = trades.groupBy { monthKeyFormat.format(Date(it.entryTimestamp)) }
-        return grouped.map { (_, mTrades) ->
+        return grouped.map { (key, mTrades) ->
             val first = mTrades.first()
             val netPnL = mTrades.sumOf { it.netPnL }
             val wins = mTrades.count { it.netPnL > 0 }
             val winRate = if (mTrades.isNotEmpty()) (wins.toDouble() / mTrades.size) * 100.0 else 0.0
-            MonthlyPnL(
-                monthLabel = monthFormat.format(Date(first.entryTimestamp)),
+            Pair(
+                key,
+                MonthlyPnL(
+                    monthLabel = monthFormat.format(Date(first.entryTimestamp)),
+                    netPnL = netPnL,
+                    tradeCount = mTrades.size,
+                    winRate = winRate
+                )
+            )
+        }.sortedByDescending { it.first }.map { it.second }
+    }
+
+    private fun computeYearlyPnL(trades: List<TradeEntity>): List<YearlyPnL> {
+        val yearKeyFormat = SimpleDateFormat("yyyy", Locale.getDefault())
+        val grouped = trades.groupBy { yearKeyFormat.format(Date(it.entryTimestamp)) }
+        return grouped.map { (yearKey, yTrades) ->
+            val netPnL = yTrades.sumOf { it.netPnL }
+            val wins = yTrades.count { it.netPnL > 0 }
+            val winRate = if (yTrades.isNotEmpty()) (wins.toDouble() / yTrades.size) * 100.0 else 0.0
+            YearlyPnL(
+                yearLabel = yearKey,
                 netPnL = netPnL,
-                tradeCount = mTrades.size,
+                tradeCount = yTrades.size,
                 winRate = winRate
             )
-        }
+        }.sortedByDescending { it.yearLabel }
     }
 
     private fun computeSetupAnalytics(trades: List<TradeEntity>): List<SetupPerformance> {

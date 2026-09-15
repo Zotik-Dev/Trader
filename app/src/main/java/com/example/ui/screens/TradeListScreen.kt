@@ -19,12 +19,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.TradeEntity
+import com.example.model.DateFilter
 import com.example.model.Instrument
 import com.example.ui.components.DirectionBadge
+import com.example.ui.components.MonthYearPickerDialog
 import com.example.ui.components.StatusBadge
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.TradeViewModel
 import com.example.util.TradeCalculations
+import java.text.DateFormatSymbols
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -42,6 +45,23 @@ fun TradeListScreen(
     val selectedInstrument by viewModel.selectedInstrumentFilter.collectAsState()
     val selectedOutcome by viewModel.selectedOutcomeFilter.collectAsState()
     val selectedSetup by viewModel.selectedSetupFilter.collectAsState()
+    val dateFilter by viewModel.dateFilter.collectAsState()
+    val selectedYear by viewModel.selectedYear.collectAsState()
+    val selectedMonth by viewModel.selectedMonth.collectAsState()
+
+    var showMonthYearPicker by remember { mutableStateOf(false) }
+
+    if (showMonthYearPicker) {
+        MonthYearPickerDialog(
+            initialYear = selectedYear,
+            initialMonth = selectedMonth,
+            onDismiss = { showMonthYearPicker = false },
+            onConfirm = { year, month ->
+                viewModel.setCustomMonthYear(year, month)
+                showMonthYearPicker = false
+            }
+        )
+    }
 
     val dateFormatter = remember { SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()) }
 
@@ -94,6 +114,49 @@ fun TradeListScreen(
                 shape = RoundedCornerShape(12.dp),
                 singleLine = true
             )
+
+            // Horizontal filters: Date Range (All, Today, Week, Month, Last Month, Year, etc.)
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 3.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                items(DateFilter.entries) { filter ->
+                    val isSelected = dateFilter == filter
+                    val labelText = if (filter == DateFilter.CUSTOM_MONTH_YEAR && isSelected) {
+                        val monthName = DateFormatSymbols.getInstance().shortMonths.getOrNull(selectedMonth) ?: ""
+                        "$monthName $selectedYear"
+                    } else {
+                        filter.label
+                    }
+
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = {
+                            if (filter == DateFilter.CUSTOM_MONTH_YEAR) {
+                                showMonthYearPicker = true
+                            } else {
+                                viewModel.setDateFilter(filter)
+                            }
+                        },
+                        leadingIcon = if (filter == DateFilter.CUSTOM_MONTH_YEAR) {
+                            {
+                                Icon(
+                                    Icons.Default.CalendarMonth,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(15.dp)
+                                )
+                            }
+                        } else null,
+                        label = {
+                            Text(
+                                labelText,
+                                fontSize = 11.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
+                    )
+                }
+            }
 
             // Horizontal filters: Instruments
             LazyRow(

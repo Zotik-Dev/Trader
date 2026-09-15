@@ -15,6 +15,13 @@ data class MonthlyPnL(
     val winRate: Double
 )
 
+data class YearlyPnL(
+    val yearLabel: String,      // e.g., "2026"
+    val netPnL: Double,
+    val tradeCount: Int,
+    val winRate: Double
+)
+
 data class SetupPerformance(
     val setupName: String,
     val totalTrades: Int,
@@ -56,12 +63,19 @@ data class TradingSummary(
     val worstTradePnL: Double = 0.0,
     val todayPnL: Double = 0.0,
     val thisWeekPnL: Double = 0.0,
-    val thisMonthPnL: Double = 0.0
+    val thisMonthPnL: Double = 0.0,
+    val lastMonthPnL: Double = 0.0,
+    val thisYearPnL: Double = 0.0,
+    val lastYearPnL: Double = 0.0
 )
 
 enum class DateFilter(val label: String) {
     ALL("All Time"),
     TODAY("Today"),
     THIS_WEEK("This Week"),
-    THIS_MONTH("This Month")
+    THIS_MONTH("This Month"),
+    LAST_MONTH("Last Month"),
+    THIS_YEAR("This Year"),
+    LAST_YEAR("Last Year"),
+    CUSTOM_MONTH_YEAR("Month / Year")
 }

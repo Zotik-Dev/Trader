@@ -30,6 +30,7 @@ fun AnalyticsScreen(
     val setupAnalytics by viewModel.setupAnalytics.collectAsState()
     val emotionAnalytics by viewModel.emotionAnalytics.collectAsState()
     val monthlyPnLList by viewModel.monthlyPnLList.collectAsState()
+    val yearlyPnLList by viewModel.yearlyPnLList.collectAsState()
     val summary by viewModel.summary.collectAsState()
 
     Scaffold(
@@ -309,6 +310,53 @@ fun AnalyticsScreen(
                 }
             }
 
+            // Yearly P&L Breakdown
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = CardDefaults.outlinedCardBorder()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            "YEARLY P&L PERFORMANCE",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            letterSpacing = 1.sp
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        if (yearlyPnLList.isEmpty()) {
+                            Text("No yearly data yet", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        } else {
+                            yearlyPnLList.forEach { y ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 6.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column {
+                                        Text("Year ${y.yearLabel}", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                        Text("${y.tradeCount} trades • ${y.winRate.toInt()}% Win Rate", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    Text(
+                                        TradeCalculations.formatCurrency(y.netPnL),
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (y.netPnL >= 0) ProfitGreen else LossRed
+                                    )
+                                }
+                                Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                            }
+                        }
+                    }
+                }
+            }
+
             // Monthly P&L Breakdown
             item {
                 Card(
@@ -349,6 +397,7 @@ fun AnalyticsScreen(
                                         color = if (m.netPnL >= 0) ProfitGreen else LossRed
                                     )
                                 }
+                                Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
                             }
                         }
                     }

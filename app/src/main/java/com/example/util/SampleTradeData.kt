@@ -189,6 +189,86 @@ object SampleTradeData {
                 imageUris = emptyList(),
                 entryTimestamp = now - (oneDay * 7) - TimeUnit.HOURS.toMillis(3),
                 exitTimestamp = now - (oneDay * 7) - TimeUnit.HOURS.toMillis(2)
+            ),
+            TradeEntity(
+                id = 0,
+                instrument = "Crude Oil Mini",
+                strikeOrSymbol = "6400 CE",
+                optionType = "CE",
+                direction = "BUY",
+                entryPrice = 120.0,
+                slPrice = 100.0,
+                target1 = 160.0,
+                target2 = 190.0,
+                target3 = 220.0,
+                exitPrice = 175.0,
+                quantity = 20,
+                grossPnL = 1100.0,
+                charges = 42.0,
+                netPnL = 1058.0,
+                points = 55.0,
+                riskAmount = 400.0,
+                plannedRR = 2.0,
+                actualRR = 2.75,
+                status = "TARGET_HIT",
+                setup = "Breakout & Retest",
+                indicators = listOf("VWAP", "EMA (9/21)"),
+                emotion = "Disciplined",
+                mistake = "None (Followed Plan)",
+                notes = "Crude mini inventory play. Clean breakout and targets achieved.",
+                imageUris = emptyList(),
+                entryTimestamp = run {
+                    val cal = java.util.Calendar.getInstance()
+                    cal.add(java.util.Calendar.MONTH, -1)
+                    cal.set(java.util.Calendar.DAY_OF_MONTH, 15)
+                    cal.timeInMillis
+                },
+                exitTimestamp = run {
+                    val cal = java.util.Calendar.getInstance()
+                    cal.add(java.util.Calendar.MONTH, -1)
+                    cal.set(java.util.Calendar.DAY_OF_MONTH, 15)
+                    cal.timeInMillis + TimeUnit.HOURS.toMillis(2)
+                }
+            ),
+            TradeEntity(
+                id = 0,
+                instrument = "Sensex",
+                strikeOrSymbol = "81500 PE",
+                optionType = "PE",
+                direction = "BUY",
+                entryPrice = 240.0,
+                slPrice = 200.0,
+                target1 = 300.0,
+                target2 = 360.0,
+                target3 = 420.0,
+                exitPrice = 330.0,
+                quantity = 40,
+                grossPnL = 3600.0,
+                charges = 65.0,
+                netPnL = 3535.0,
+                points = 90.0,
+                riskAmount = 1600.0,
+                plannedRR = 1.5,
+                actualRR = 2.25,
+                status = "TARGET_HIT",
+                setup = "CPR Breakout",
+                indicators = listOf("CPR", "VWAP"),
+                emotion = "Confident",
+                mistake = "None (Followed Plan)",
+                notes = "Sensex weekly expiry trending momentum. Held till final target.",
+                imageUris = emptyList(),
+                entryTimestamp = run {
+                    val cal = java.util.Calendar.getInstance()
+                    cal.add(java.util.Calendar.MONTH, -1)
+                    cal.set(java.util.Calendar.DAY_OF_MONTH, 22)
+                    cal.timeInMillis
+                },
+                exitTimestamp = run {
+                    val cal = java.util.Calendar.getInstance()
+                    cal.add(java.util.Calendar.MONTH, -1)
+                    cal.set(java.util.Calendar.DAY_OF_MONTH, 22)
+                    cal.timeInMillis + TimeUnit.HOURS.toMillis(3)
+                }
             )
         )
     }
