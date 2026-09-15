@@ -1,0 +1,6 @@
+{
+  "name": "Trading Journal",
+  "description": "Trading journal for NIFTY, Bank Nifty, Sensex, and commodities with trade logging, P&L calculations, risk-reward analysis, chart attachments, analytics, and backup.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
