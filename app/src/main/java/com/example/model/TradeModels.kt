@@ -4,6 +4,8 @@ enum class Instrument(val displayName: String, val defaultLotSize: Int) {
     NIFTY("NIFTY 50", 25),
     BANK_NIFTY("Bank Nifty", 15),
     SENSEX("Sensex", 10),
+    FINNIFTY("FINNIFTY", 25),
+    MIDCPNIFTY("MIDCPNIFTY", 50),
     CRUDE_OIL("Crude Oil", 100),
     NATURAL_GAS("Natural Gas", 1250),
     OTHER("Custom / Other", 1);

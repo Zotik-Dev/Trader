@@ -53,6 +53,9 @@ fun AddEditTradeScreen(
     var selectedOptionType by remember { mutableStateOf(existingTrade?.optionType ?: "CE") }
     var selectedDirection by remember { mutableStateOf(existingTrade?.direction ?: "BUY") }
 
+    var instrumentExpanded by remember { mutableStateOf(false) }
+    var optionTypeExpanded by remember { mutableStateOf(false) }
+
     var entryPriceStr by remember { mutableStateOf(existingTrade?.entryPrice?.toString()?.removeSuffix(".0") ?: "") }
     var slPriceStr by remember { mutableStateOf(existingTrade?.slPrice?.takeIf { it > 0 }?.toString()?.removeSuffix(".0") ?: "") }
     var target1Str by remember { mutableStateOf(existingTrade?.target1?.takeIf { it > 0 }?.toString()?.removeSuffix(".0") ?: "") }
@@ -203,117 +206,205 @@ fun AddEditTradeScreen(
                 }
             }
 
-            // 1. Instrument Selection
+            // 1. Instrument & Trade Type Dropdowns
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(14.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
                         Text(
-                            "SELECT INSTRUMENT",
+                            "INSTRUMENT & CONTRACT",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             letterSpacing = 1.sp
                         )
-                        Spacer(modifier = Modifier.height(10.dp))
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            items(Instrument.entries) { inst ->
-                                FilterChip(
-                                    selected = selectedInstrument.equals(inst.displayName, ignoreCase = true) ||
-                                            selectedInstrument.equals(inst.name, ignoreCase = true),
-                                    onClick = { onInstrumentSelected(inst) },
-                                    label = { Text(inst.displayName, fontSize = 12.sp) }
-                                )
-                            }
-                        }
-                    }
-                }
-            }
 
-            // 2. Strike/Symbol & Option Type & Direction
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                ) {
-                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        OutlinedTextField(
-                            value = strikeOrSymbol,
-                            onValueChange = { strikeOrSymbol = it },
-                            label = { Text("Symbol / Strike (e.g. 24800 CE, 52000 PE, FUT)") },
-                            placeholder = { Text("e.g. 24800 CE") },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("input_strike_symbol"),
-                            singleLine = true
-                        )
-
-                        // Option Type row (CE, PE, FUT, EQ)
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        // Instrument Dropdown
+                        ExposedDropdownMenuBox(
+                            expanded = instrumentExpanded,
+                            onExpandedChange = { instrumentExpanded = !instrumentExpanded },
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            listOf("CE", "PE", "FUT", "EQ").forEach { type ->
-                                val isSelected = selectedOptionType == type
-                                OutlinedButton(
-                                    onClick = { selectedOptionType = type },
-                                    modifier = Modifier.weight(1f),
-                                    colors = ButtonDefaults.outlinedButtonColors(
-                                        containerColor = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surface
-                                    ),
-                                    border = ButtonDefaults.outlinedButtonBorder.copy(
-                                        brush = androidx.compose.ui.graphics.SolidColor(
-                                            if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
-                                        )
-                                    )
-                                ) {
-                                    Text(
-                                        type,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                            OutlinedTextField(
+                                value = selectedInstrument,
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("Instrument *") },
+                                trailingIcon = {
+                                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = instrumentExpanded)
+                                },
+                                colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .menuAnchor()
+                                    .testTag("dropdown_instrument")
+                            )
+
+                            ExposedDropdownMenu(
+                                expanded = instrumentExpanded,
+                                onDismissRequest = { instrumentExpanded = false }
+                            ) {
+                                Instrument.entries.forEach { inst ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(
+                                                    inst.displayName,
+                                                    fontWeight = if (selectedInstrument == inst.displayName || selectedInstrument == inst.name) FontWeight.Bold else FontWeight.Normal
+                                                )
+                                                Text(
+                                                    "Lot: ${inst.defaultLotSize}",
+                                                    fontSize = 12.sp,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                        },
+                                        onClick = {
+                                            onInstrumentSelected(inst)
+                                            instrumentExpanded = false
+                                        },
+                                        contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
                                     )
                                 }
                             }
                         }
 
-                        // Direction row (BUY vs SELL)
+                        // Trade Type (CE/PE) Dropdown and Direction (BUY/SELL)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Button(
-                                onClick = { selectedDirection = "BUY" },
-                                modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (selectedDirection == "BUY") ProfitGreen else MaterialTheme.colorScheme.surfaceVariant,
-                                    contentColor = if (selectedDirection == "BUY") TradeBgDark else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                            // Trade Type (CE/PE) Dropdown
+                            ExposedDropdownMenuBox(
+                                expanded = optionTypeExpanded,
+                                onExpandedChange = { optionTypeExpanded = !optionTypeExpanded },
+                                modifier = Modifier.weight(1f)
                             ) {
-                                Text("BUY / LONG", fontWeight = FontWeight.Bold)
+                                OutlinedTextField(
+                                    value = when (selectedOptionType) {
+                                        "CE" -> "CE (Call)"
+                                        "PE" -> "PE (Put)"
+                                        "FUT" -> "FUT (Futures)"
+                                        "EQ" -> "EQ (Equity)"
+                                        else -> selectedOptionType
+                                    },
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    label = { Text("Type (CE/PE) *") },
+                                    trailingIcon = {
+                                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = optionTypeExpanded)
+                                    },
+                                    colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .menuAnchor()
+                                        .testTag("dropdown_trade_type")
+                                )
+
+                                ExposedDropdownMenu(
+                                    expanded = optionTypeExpanded,
+                                    onDismissRequest = { optionTypeExpanded = false }
+                                ) {
+                                    listOf(
+                                        "CE" to "CE - Call Option",
+                                        "PE" to "PE - Put Option",
+                                        "FUT" to "FUT - Futures Contract",
+                                        "EQ" to "EQ - Cash Equity"
+                                    ).forEach { (code, title) ->
+                                        DropdownMenuItem(
+                                            text = {
+                                                Column {
+                                                    Text(code, fontWeight = FontWeight.Bold)
+                                                    Text(
+                                                        title,
+                                                        fontSize = 11.sp,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                }
+                                            },
+                                            onClick = {
+                                                selectedOptionType = code
+                                                optionTypeExpanded = false
+                                            },
+                                            contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
+                                        )
+                                    }
+                                }
                             }
 
-                            Button(
-                                onClick = { selectedDirection = "SELL" },
+                            // Direction Buttons: BUY vs SELL
+                            Column(
                                 modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (selectedDirection == "SELL") LossRed else MaterialTheme.colorScheme.surfaceVariant,
-                                    contentColor = if (selectedDirection == "SELL") TextPrimaryDark else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
-                                Text("SELL / SHORT", fontWeight = FontWeight.Bold)
+                                Text(
+                                    "Direction",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Button(
+                                        onClick = { selectedDirection = "BUY" },
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(48.dp)
+                                            .testTag("button_direction_buy"),
+                                        contentPadding = PaddingValues(0.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (selectedDirection == "BUY") ProfitGreen else MaterialTheme.colorScheme.surfaceVariant,
+                                            contentColor = if (selectedDirection == "BUY") TradeBgDark else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    ) {
+                                        Text("BUY", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    }
+
+                                    Button(
+                                        onClick = { selectedDirection = "SELL" },
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(48.dp)
+                                            .testTag("button_direction_sell"),
+                                        contentPadding = PaddingValues(0.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (selectedDirection == "SELL") LossRed else MaterialTheme.colorScheme.surfaceVariant,
+                                            contentColor = if (selectedDirection == "SELL") TextPrimaryDark else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    ) {
+                                        Text("SELL", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    }
+                                }
                             }
                         }
+
+                        // Strike / Contract Symbol
+                        OutlinedTextField(
+                            value = strikeOrSymbol,
+                            onValueChange = { strikeOrSymbol = it },
+                            label = { Text("Strike / Contract Symbol") },
+                            placeholder = { Text("e.g. 24800 CE, 52000 PE, Aug Future") },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("input_strike_symbol"),
+                            singleLine = true
+                        )
                     }
                 }
             }
 
-            // 3. Trade Prices & Quantity
+            // 2. Entry and Exit Prices & Position Size
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -322,18 +413,20 @@ fun AddEditTradeScreen(
                 ) {
                     Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(
-                            "PRICES & POSITION SIZE",
+                            "ENTRY, EXIT & EXECUTION PRICES",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             letterSpacing = 1.sp
                         )
 
+                        // Entry Price & Exit Price text fields
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             OutlinedTextField(
                                 value = entryPriceStr,
                                 onValueChange = { entryPriceStr = it },
                                 label = { Text("Entry Price *") },
+                                placeholder = { Text("0.00") },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                 modifier = Modifier
                                     .weight(1f)
@@ -344,6 +437,7 @@ fun AddEditTradeScreen(
                                 value = exitPriceStr,
                                 onValueChange = { exitPriceStr = it },
                                 label = { Text("Exit Price") },
+                                placeholder = { Text("0.00") },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                 modifier = Modifier
                                     .weight(1f)
