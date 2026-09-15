@@ -94,6 +94,32 @@ object TradeCalculations {
         return if (risk > 0) reward / risk else 0.0
     }
 
+    fun calculateRewardPoints(
+        direction: TradeDirection,
+        entryPrice: Double,
+        targetPrice: Double
+    ): Double {
+        if (entryPrice <= 0 || targetPrice <= 0) return 0.0
+        return when (direction) {
+            TradeDirection.BUY -> (targetPrice - entryPrice).coerceAtLeast(0.0)
+            TradeDirection.SELL -> (entryPrice - targetPrice).coerceAtLeast(0.0)
+        }
+    }
+
+    fun calculateBreakevenPrice(
+        direction: TradeDirection,
+        entryPrice: Double,
+        charges: Double,
+        quantity: Int
+    ): Double {
+        if (entryPrice <= 0 || quantity <= 0) return 0.0
+        val pointsNeeded = charges / quantity
+        return when (direction) {
+            TradeDirection.BUY -> entryPrice + pointsNeeded
+            TradeDirection.SELL -> (entryPrice - pointsNeeded).coerceAtLeast(0.0)
+        }
+    }
+
     fun calculateActualRR(
         direction: TradeDirection,
         entryPrice: Double,

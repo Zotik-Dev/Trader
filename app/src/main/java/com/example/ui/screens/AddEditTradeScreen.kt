@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -62,7 +63,7 @@ fun AddEditTradeScreen(
     var target2Str by remember { mutableStateOf(existingTrade?.target2?.takeIf { it > 0 }?.toString()?.removeSuffix(".0") ?: "") }
     var target3Str by remember { mutableStateOf(existingTrade?.target3?.takeIf { it > 0 }?.toString()?.removeSuffix(".0") ?: "") }
     var exitPriceStr by remember { mutableStateOf(existingTrade?.exitPrice?.takeIf { it > 0 }?.toString()?.removeSuffix(".0") ?: "") }
-    var quantityStr by remember { mutableStateOf(existingTrade?.quantity?.toString() ?: "25") }
+    var quantityStr by remember { mutableStateOf(existingTrade?.quantity?.toString() ?: "65") }
     var customChargesStr by remember { mutableStateOf(existingTrade?.charges?.takeIf { it > 0 }?.toString() ?: "") }
 
     var selectedStatus by remember { mutableStateOf(existingTrade?.status ?: "TARGET_HIT") }
@@ -93,6 +94,20 @@ fun AddEditTradeScreen(
     val riskAmount = TradeCalculations.calculateRiskAmount(directionEnum, entryPrice, slPrice, quantity)
     val plannedRR = TradeCalculations.calculatePlannedRR(directionEnum, entryPrice, slPrice, target1)
     val actualRR = TradeCalculations.calculateActualRR(directionEnum, entryPrice, slPrice, exitPrice)
+
+    // Summary Section Metrics
+    val target1Points = TradeCalculations.calculateRewardPoints(directionEnum, entryPrice, target1)
+    val potentialTargetGross = TradeCalculations.calculateGrossPnL(directionEnum, entryPrice, target1, quantity)
+    val targetCharges = TradeCalculations.estimateCharges(entryPrice, target1, quantity)
+    val potentialTargetNet = potentialTargetGross - targetCharges
+
+    val slRiskPoints = TradeCalculations.calculateRiskPoints(directionEnum, entryPrice, slPrice)
+    val potentialRiskGross = TradeCalculations.calculateRiskAmount(directionEnum, entryPrice, slPrice, quantity)
+    val slCharges = TradeCalculations.estimateCharges(entryPrice, slPrice, quantity)
+    val potentialTotalRisk = potentialRiskGross + slCharges
+
+    val breakevenPrice = TradeCalculations.calculateBreakevenPrice(directionEnum, entryPrice, estimatedCharges, quantity)
+    val totalCapital = entryPrice * quantity
 
     // Sync default lot size when instrument changes (if creating fresh trade)
     fun onInstrumentSelected(inst: Instrument) {
@@ -263,7 +278,7 @@ fun AddEditTradeScreen(
                                                     fontWeight = if (selectedInstrument == inst.displayName || selectedInstrument == inst.name) FontWeight.Bold else FontWeight.Normal
                                                 )
                                                 Text(
-                                                    "Lot: ${inst.defaultLotSize}",
+                                                    "${inst.defaultLotSize} qty/lot",
                                                     fontSize = 12.sp,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
@@ -511,14 +526,7 @@ fun AddEditTradeScreen(
                         )
 
                         // Quick lot size increment row
-                        val step = when {
-                            selectedInstrument.contains("Bank", ignoreCase = true) -> 15
-                            selectedInstrument.contains("Nifty", ignoreCase = true) -> 25
-                            selectedInstrument.contains("Sensex", ignoreCase = true) -> 10
-                            selectedInstrument.contains("Crude", ignoreCase = true) -> 100
-                            selectedInstrument.contains("Natural", ignoreCase = true) -> 1250
-                            else -> 10
-                        }
+                        val step = Instrument.fromString(selectedInstrument).defaultLotSize.coerceAtLeast(1)
 
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -543,6 +551,419 @@ fun AddEditTradeScreen(
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true
                         )
+                    }
+                }
+            }
+
+            // 3. Trade Summary & Risk:Reward Analysis Section
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("card_trade_summary"),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    ),
+                    border = BorderStroke(
+                        1.dp,
+                        if (plannedRR >= 2.0) ProfitGreen.copy(alpha = 0.5f)
+                        else if (plannedRR >= 1.0) ElectricBlue.copy(alpha = 0.4f)
+                        else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        // Section Header with dynamic evaluation badge
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(ElectricBlue.copy(alpha = 0.15f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Analytics,
+                                        contentDescription = null,
+                                        tint = ElectricBlue,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                Column {
+                                    Text(
+                                        "TRADE SUMMARY & RISK:REWARD",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 0.8.sp,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        "Auto-calculated potential P&L & expectancy",
+                                        fontSize = 10.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+
+                            // Dynamic Evaluation Pill
+                            val (badgeText, badgeBg, badgeTextColor) = when {
+                                plannedRR >= 2.0 -> Triple("Excellent R:R (≥ 1:2)", ProfitGreenBg, ProfitGreen)
+                                plannedRR >= 1.5 -> Triple("Favorable R:R (≥ 1:1.5)", ElectricBlueBg, ElectricBlue)
+                                plannedRR >= 1.0 -> Triple("Moderate R:R (1:1)", AmberGoldBg, AmberGold)
+                                plannedRR > 0.0 -> Triple("High Risk (< 1:1)", LossRedBg, LossRed)
+                                else -> Triple("Awaiting Levels", MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+
+                            Surface(
+                                shape = RoundedCornerShape(20.dp),
+                                color = badgeBg,
+                                border = BorderStroke(1.dp, badgeTextColor.copy(alpha = 0.4f))
+                            ) {
+                                Text(
+                                    badgeText,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = badgeTextColor
+                                )
+                            }
+                        }
+
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+
+                        // Side-by-side Potential Reward vs Potential Risk Cards
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            // Target 1 Potential Reward Box
+                            Card(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag("summary_potential_profit"),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(containerColor = ProfitGreenBg),
+                                border = BorderStroke(1.dp, ProfitGreen.copy(alpha = 0.3f))
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            "POTENTIAL PROFIT",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = ProfitGreen
+                                        )
+                                        Icon(
+                                            Icons.Default.TrendingUp,
+                                            contentDescription = null,
+                                            tint = ProfitGreen,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        if (target1 > 0 && entryPrice > 0 && quantity > 0)
+                                            TradeCalculations.formatCurrency(potentialTargetNet)
+                                        else "—",
+                                        fontSize = 17.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = ProfitGreen
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        if (target1 > 0 && entryPrice > 0)
+                                            "+${"%.1f".format(target1Points)} pts @ ₹$target1"
+                                        else "Set Target 1 price",
+                                        fontSize = 10.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    if (target1 > 0 && entryPrice > 0 && quantity > 0) {
+                                        Text(
+                                            "Gross: ₹${"%,.0f".format(potentialTargetGross)}",
+                                            fontSize = 9.sp,
+                                            color = ProfitGreen.copy(alpha = 0.8f)
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Stop Loss Potential Risk Box
+                            Card(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag("summary_potential_risk"),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(containerColor = LossRedBg),
+                                border = BorderStroke(1.dp, LossRed.copy(alpha = 0.3f))
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            "MAX RISK / LOSS",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = LossRed
+                                        )
+                                        Icon(
+                                            Icons.Default.TrendingDown,
+                                            contentDescription = null,
+                                            tint = LossRed,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        if (slPrice > 0 && entryPrice > 0 && quantity > 0)
+                                            "-₹${"%,.0f".format(potentialTotalRisk)}"
+                                        else "—",
+                                        fontSize = 17.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = LossRed
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        if (slPrice > 0 && entryPrice > 0)
+                                            "-${"%.1f".format(slRiskPoints)} pts @ ₹$slPrice"
+                                        else "Set Stop Loss price",
+                                        fontSize = 10.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    if (slPrice > 0 && entryPrice > 0 && quantity > 0) {
+                                        Text(
+                                            "Risk: ₹${"%,.0f".format(potentialRiskGross)} + fees",
+                                            fontSize = 9.sp,
+                                            color = LossRed.copy(alpha = 0.8f)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // Risk : Reward Ratio Highlight Card & Visual Gauge
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("summary_risk_reward_gauge"),
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column {
+                                        Text(
+                                            "PLANNED RISK : REWARD",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            letterSpacing = 0.5.sp
+                                        )
+                                        Text(
+                                            TradeCalculations.formatRR(plannedRR),
+                                            fontSize = 20.sp,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = if (plannedRR >= 2.0) ProfitGreen else if (plannedRR >= 1.0) ElectricBlue else MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+
+                                    if (exitPrice > 0 && entryPrice > 0) {
+                                        Column(horizontalAlignment = Alignment.End) {
+                                            Text(
+                                                "REALIZED R:R",
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                letterSpacing = 0.5.sp
+                                            )
+                                            Text(
+                                                TradeCalculations.formatRR(actualRR),
+                                                fontSize = 20.sp,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                color = if (actualRR >= 1.0) ProfitGreen else if (actualRR > 0) ElectricBlue else LossRed
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                // Proportional Visual Risk vs Reward Bar
+                                val totalPointsSpan = (slRiskPoints + target1Points).coerceAtLeast(0.001)
+                                val riskFraction = (slRiskPoints / totalPointsSpan).toFloat().coerceIn(0.05f, 0.95f)
+                                val rewardFraction = 1f - riskFraction
+
+                                if (slRiskPoints > 0 && target1Points > 0) {
+                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(10.dp)
+                                                .clip(RoundedCornerShape(5.dp))
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxHeight()
+                                                    .weight(riskFraction)
+                                                    .background(LossRed)
+                                            )
+                                            Spacer(modifier = Modifier.width(2.dp))
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxHeight()
+                                                    .weight(rewardFraction)
+                                                    .background(ProfitGreen)
+                                            )
+                                        }
+
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text(
+                                                "Risk: ${"%.0f".format(slRiskPoints)} pts (${(riskFraction * 100).toInt()}%)",
+                                                fontSize = 10.sp,
+                                                color = LossRed,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                            Text(
+                                                "Reward: ${"%.0f".format(target1Points)} pts (${(rewardFraction * 100).toInt()}%)",
+                                                fontSize = 10.sp,
+                                                color = ProfitGreen,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    Text(
+                                        "Input Stop Loss and Target 1 to view the proportional Risk vs Reward visualizer.",
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+
+                        // Realized Outcome Banner (if Exit Price entered)
+                        if (exitPrice > 0 && entryPrice > 0 && quantity > 0) {
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("summary_realized_outcome"),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (netPnL >= 0) ProfitGreenBg else LossRedBg
+                                ),
+                                border = BorderStroke(
+                                    1.dp,
+                                    if (netPnL >= 0) ProfitGreen.copy(alpha = 0.5f) else LossRed.copy(alpha = 0.5f)
+                                )
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column {
+                                        Text(
+                                            "CURRENT REALIZED P&L (EXIT @ ₹$exitPrice)",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (netPnL >= 0) ProfitGreen else LossRed
+                                        )
+                                        Text(
+                                            TradeCalculations.formatCurrency(netPnL),
+                                            fontSize = 20.sp,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = if (netPnL >= 0) ProfitGreen else LossRed
+                                        )
+                                    }
+                                    Column(horizontalAlignment = Alignment.End) {
+                                        Text(
+                                            TradeCalculations.formatPoints(points),
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (points >= 0) ProfitGreen else LossRed
+                                        )
+                                        Text(
+                                            "Gross: ₹${"%,.0f".format(grossPnL)} | Fees: ₹${"%.1f".format(estimatedCharges)}",
+                                            fontSize = 10.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // Key Execution Metrics Row
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text(
+                                    "Contract Value",
+                                    fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    if (totalCapital > 0) "₹${"%,.0f".format(totalCapital)}" else "—",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    "Breakeven Price",
+                                    fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    if (breakevenPrice > 0) "₹${"%.2f".format(breakevenPrice)}" else "—",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    "Est. Charges",
+                                    fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    if (estimatedCharges > 0) "₹${"%.1f".format(estimatedCharges)}" else "—",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
                     }
                 }
             }

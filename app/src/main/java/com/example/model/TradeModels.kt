@@ -1,18 +1,33 @@
 package com.example.model
 
 enum class Instrument(val displayName: String, val defaultLotSize: Int) {
-    NIFTY("NIFTY 50", 25),
-    BANK_NIFTY("Bank Nifty", 15),
-    SENSEX("Sensex", 10),
-    FINNIFTY("FINNIFTY", 25),
-    MIDCPNIFTY("MIDCPNIFTY", 50),
+    NIFTY("NIFTY", 65),
+    SENSEX("Sensex", 20),
+    BANK_NIFTY("Bank Nifty", 30),
+    MIDCPNIFTY("MIDCPNIFTY", 120),
+    FINNIFTY("FINNIFTY", 60),
+    CRUDE_OIL_MINI("Crude Oil Mini", 10),
+    NATURAL_GAS_MINI("Natural Gas Mini", 250),
     CRUDE_OIL("Crude Oil", 100),
     NATURAL_GAS("Natural Gas", 1250),
     OTHER("Custom / Other", 1);
 
     companion object {
         fun fromString(value: String): Instrument {
-            return entries.find { it.name.equals(value, ignoreCase = true) || it.displayName.equals(value, ignoreCase = true) } ?: OTHER
+            val trimmed = value.trim()
+            entries.find { it.name.equals(trimmed, ignoreCase = true) || it.displayName.equals(trimmed, ignoreCase = true) }?.let { return it }
+
+            if (trimmed.contains("crude", ignoreCase = true) && trimmed.contains("mini", ignoreCase = true)) return CRUDE_OIL_MINI
+            if (trimmed.contains("natural", ignoreCase = true) && trimmed.contains("mini", ignoreCase = true)) return NATURAL_GAS_MINI
+            if (trimmed.contains("bank", ignoreCase = true)) return BANK_NIFTY
+            if (trimmed.contains("fin", ignoreCase = true)) return FINNIFTY
+            if (trimmed.contains("mid", ignoreCase = true)) return MIDCPNIFTY
+            if (trimmed.contains("sensex", ignoreCase = true)) return SENSEX
+            if (trimmed.contains("crude", ignoreCase = true)) return CRUDE_OIL
+            if (trimmed.contains("natural", ignoreCase = true) || trimmed.contains("ng", ignoreCase = true)) return NATURAL_GAS
+            if (trimmed.contains("nifty", ignoreCase = true)) return NIFTY
+
+            return OTHER
         }
     }
 }

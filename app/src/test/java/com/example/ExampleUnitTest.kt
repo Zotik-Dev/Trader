@@ -1,5 +1,6 @@
 package com.example
 
+import com.example.model.Instrument
 import com.example.model.TradeDirection
 import com.example.util.TradeCalculations
 import org.junit.Assert.assertEquals
@@ -42,5 +43,34 @@ class ExampleUnitTest {
     fun testChargesCalculation() {
         val charges = TradeCalculations.estimateCharges(24500.0, 24650.0, 25)
         assertTrue("Charges should be at least standard ₹40", charges >= 40.0)
+    }
+
+    @Test
+    fun testRewardPointsAndBreakeven() {
+        val reward = TradeCalculations.calculateRewardPoints(TradeDirection.BUY, 24500.0, 24700.0)
+        assertEquals(200.0, reward, 0.001)
+
+        val breakeven = TradeCalculations.calculateBreakevenPrice(TradeDirection.BUY, 24500.0, 50.0, 25)
+        assertEquals(24502.0, breakeven, 0.001)
+    }
+
+    @Test
+    fun testInstrumentLotSizes() {
+        assertEquals(65, Instrument.NIFTY.defaultLotSize)
+        assertEquals(20, Instrument.SENSEX.defaultLotSize)
+        assertEquals(30, Instrument.BANK_NIFTY.defaultLotSize)
+        assertEquals(120, Instrument.MIDCPNIFTY.defaultLotSize)
+        assertEquals(60, Instrument.FINNIFTY.defaultLotSize)
+        assertEquals(10, Instrument.CRUDE_OIL_MINI.defaultLotSize)
+        assertEquals(250, Instrument.NATURAL_GAS_MINI.defaultLotSize)
+
+        // Verify fromString lookups
+        assertEquals(Instrument.NIFTY, Instrument.fromString("Nifty"))
+        assertEquals(Instrument.SENSEX, Instrument.fromString("Sensex"))
+        assertEquals(Instrument.BANK_NIFTY, Instrument.fromString("Banknifty"))
+        assertEquals(Instrument.MIDCPNIFTY, Instrument.fromString("Midcpnifty"))
+        assertEquals(Instrument.FINNIFTY, Instrument.fromString("Finnifty"))
+        assertEquals(Instrument.CRUDE_OIL_MINI, Instrument.fromString("Crudeoil mini"))
+        assertEquals(Instrument.NATURAL_GAS_MINI, Instrument.fromString("Naturalgas mini"))
     }
 }
