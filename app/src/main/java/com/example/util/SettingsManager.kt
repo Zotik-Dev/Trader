@@ -3,7 +3,6 @@ package com.example.util
 import android.content.Context
 import android.content.SharedPreferences
 import com.example.model.AppColorTheme
-import com.example.model.AppIconTheme
 import com.example.model.CloudAccount
 import com.example.model.ThemeMode
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,10 +18,6 @@ class SettingsManager private constructor(context: Context) {
     // Theme Color
     private val _colorTheme = MutableStateFlow(loadColorTheme())
     val colorTheme: StateFlow<AppColorTheme> = _colorTheme.asStateFlow()
-
-    // App Icon
-    private val _iconTheme = MutableStateFlow(loadIconTheme())
-    val iconTheme: StateFlow<AppIconTheme> = _iconTheme.asStateFlow()
 
     // Theme Mode
     private val _themeMode = MutableStateFlow(loadThemeMode())
@@ -46,7 +41,6 @@ class SettingsManager private constructor(context: Context) {
     companion object {
         private const val PREFS_NAME = "trading_journal_settings"
         private const val KEY_COLOR_THEME = "key_color_theme"
-        private const val KEY_ICON_THEME = "key_icon_theme"
         private const val KEY_THEME_MODE = "key_theme_mode"
         private const val KEY_APP_LOCK_ENABLED = "key_app_lock_enabled"
         private const val KEY_PIN_HASH = "key_pin_hash"
@@ -77,20 +71,6 @@ class SettingsManager private constructor(context: Context) {
     fun setColorTheme(theme: AppColorTheme) {
         prefs.edit().putString(KEY_COLOR_THEME, theme.name).apply()
         _colorTheme.value = theme
-    }
-
-    private fun loadIconTheme(): AppIconTheme {
-        val name = prefs.getString(KEY_ICON_THEME, AppIconTheme.CLASSIC_BULL.name) ?: AppIconTheme.CLASSIC_BULL.name
-        return try {
-            AppIconTheme.valueOf(name)
-        } catch (_: Exception) {
-            AppIconTheme.CLASSIC_BULL
-        }
-    }
-
-    fun setIconTheme(theme: AppIconTheme) {
-        prefs.edit().putString(KEY_ICON_THEME, theme.name).apply()
-        _iconTheme.value = theme
     }
 
     private fun loadThemeMode(): ThemeMode {

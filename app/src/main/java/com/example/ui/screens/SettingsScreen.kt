@@ -28,7 +28,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.model.AppColorTheme
-import com.example.model.AppIconTheme
 import com.example.model.ThemeMode
 import com.example.ui.theme.LossRed
 import com.example.ui.theme.ProfitGreen
@@ -48,7 +47,6 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val colorTheme by settingsManager.colorTheme.collectAsState()
-    val iconTheme by settingsManager.iconTheme.collectAsState()
     val themeMode by settingsManager.themeMode.collectAsState()
     val isAppLockEnabled by settingsManager.isAppLockEnabled.collectAsState()
     val hasPinSet by settingsManager.hasPinSet.collectAsState()
@@ -158,101 +156,7 @@ fun SettingsScreen(
                 }
             }
 
-            // Section 2: App Icon Customization
-            item {
-                SettingsSectionCard(title = "APP ICON CUSTOMIZATION", icon = Icons.Default.Apps) {
-                    Text(
-                        "Select your preferred application launcher branding:",
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        AppIconTheme.entries.forEach { iconStyle ->
-                            val isSelected = iconTheme == iconStyle
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        settingsManager.setIconTheme(iconStyle)
-                                        Toast.makeText(context, "${iconStyle.title} icon applied!", Toast.LENGTH_SHORT).show()
-                                    }
-                                    .testTag("icon_theme_${iconStyle.name.lowercase()}"),
-                                shape = RoundedCornerShape(14.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                                ),
-                                border = if (isSelected) CardDefaults.outlinedCardBorder().copy(
-                                    brush = Brush.horizontalGradient(listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.secondary))
-                                ) else null
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    // Simulated App Icon Box
-                                    Box(
-                                        modifier = Modifier
-                                            .size(54.dp)
-                                            .clip(RoundedCornerShape(12.dp))
-                                            .background(Color(iconStyle.backgroundHex))
-                                            .border(1.5.dp, Color(iconStyle.primaryHex), RoundedCornerShape(12.dp)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(iconStyle.symbolEmoji, fontSize = 26.sp)
-                                    }
-
-                                    Spacer(modifier = Modifier.width(14.dp))
-
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Text(
-                                                iconStyle.title,
-                                                fontSize = 15.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.onSurface
-                                            )
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Box(
-                                                modifier = Modifier
-                                                    .clip(RoundedCornerShape(4.dp))
-                                                    .background(Color(iconStyle.primaryHex).copy(alpha = 0.2f))
-                                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                                            ) {
-                                                Text(
-                                                    iconStyle.badgeLabel,
-                                                    fontSize = 9.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = Color(iconStyle.primaryHex)
-                                                )
-                                            }
-                                        }
-                                        Text(
-                                            iconStyle.subtitle,
-                                            fontSize = 12.sp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-
-                                    RadioButton(
-                                        selected = isSelected,
-                                        onClick = {
-                                            settingsManager.setIconTheme(iconStyle)
-                                            Toast.makeText(context, "${iconStyle.title} icon applied!", Toast.LENGTH_SHORT).show()
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Section 3: Theme Appearance Mode
+            // Section 2: Theme Appearance Mode
             item {
                 SettingsSectionCard(title = "APPEARANCE MODE", icon = Icons.Default.Brightness4) {
                     Row(

@@ -58,56 +58,6 @@ enum class AppColorTheme(
     )
 }
 
-enum class AppIconTheme(
-    val title: String,
-    val subtitle: String,
-    val badgeLabel: String,
-    val primaryHex: Long,
-    val backgroundHex: Long,
-    val symbolEmoji: String
-) {
-    CLASSIC_BULL(
-        title = "Bull & Bear Pro",
-        subtitle = "High contrast market momentum icon",
-        badgeLabel = "Default",
-        primaryHex = 0xFF10B981,
-        backgroundHex = 0xFF0B132B,
-        symbolEmoji = "📈"
-    ),
-    CANDLESTICK(
-        title = "Candlestick Analyst",
-        subtitle = "Technical Japanese candlestick chart",
-        badgeLabel = "Technical",
-        primaryHex = 0xFF38BDF8,
-        backgroundHex = 0xFF0D1B2A,
-        symbolEmoji = "📊"
-    ),
-    MINIMAL_DARK(
-        title = "Stealth Trader",
-        subtitle = "Deep matte black with minimalist glyph",
-        badgeLabel = "Stealth",
-        primaryHex = 0xFFE2E8F0,
-        backgroundHex = 0xFF000000,
-        symbolEmoji = "⚡"
-    ),
-    GOLD_WEALTH(
-        title = "Golden Wealth",
-        subtitle = "Luxury metallic gold & bullion luster",
-        badgeLabel = "Elite",
-        primaryHex = 0xFFF59E0B,
-        backgroundHex = 0xFF1C1917,
-        symbolEmoji = "🏆"
-    ),
-    CYBER_TERMINAL(
-        title = "Quant Terminal",
-        subtitle = "High-tech matrix neon cyan display",
-        badgeLabel = "Quant",
-        primaryHex = 0xFF06B6D4,
-        backgroundHex = 0xFF082F49,
-        symbolEmoji = "💠"
-    )
-}
-
 enum class ThemeMode(val displayName: String) {
     DARK("Dark Theme (Trading Mode)"),
     LIGHT("Light Theme"),

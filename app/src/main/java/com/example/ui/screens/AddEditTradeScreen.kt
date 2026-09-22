@@ -767,7 +767,7 @@ fun AddEditTradeScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text("Lots:", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            listOf(1, 2, 3, 4).forEach { multiplier ->
+                            listOf(1, 2, 3).forEach { multiplier ->
                                 val qty = step * multiplier
                                 SuggestionChip(
                                     onClick = { quantityStr = qty.toString() },
