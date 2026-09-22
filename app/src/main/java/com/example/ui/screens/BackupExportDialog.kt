@@ -107,18 +107,6 @@ fun BackupExportDialog(
                     tag = "dialog_restore_backup"
                 )
 
-                // Sample data
-                ToolOption(
-                    icon = Icons.Default.AutoFixHigh,
-                    title = "Load Realistic Sample Trades",
-                    subtitle = "Loads NIFTY, Bank Nifty, Sensex, Crude & Gas sample records",
-                    onClick = {
-                        viewModel.loadSampleData()
-                        onDismiss()
-                    },
-                    tag = "dialog_load_samples"
-                )
-
                 // Clear All
                 ToolOption(
                     icon = Icons.Default.DeleteForever,

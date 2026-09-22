@@ -236,6 +236,10 @@ fun TradeDetailScreen(
 
                         DetailRow("Entry Price", "₹${trade.entryPrice}")
                         DetailRow("Exit Price", if (trade.exitPrice > 0) "₹${trade.exitPrice}" else "Open")
+                        DetailRow("Trade Entry Date & Time", dateFormatter.format(Date(trade.entryTimestamp)))
+                        if (trade.exitPrice > 0 && trade.exitTimestamp > 0) {
+                            DetailRow("Trade Exit Date & Time", dateFormatter.format(Date(trade.exitTimestamp)))
+                        }
                         DetailRow("Stop Loss (SL)", if (trade.slPrice > 0) "₹${trade.slPrice}" else "Not set")
                         DetailRow("Target 1", if (trade.target1 > 0) "₹${trade.target1}" else "Not set")
                         if (trade.target2 > 0) DetailRow("Target 2", "₹${trade.target2}")

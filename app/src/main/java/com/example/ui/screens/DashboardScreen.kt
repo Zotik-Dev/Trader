@@ -37,6 +37,7 @@ fun DashboardScreen(
     onNavigateToHistory: () -> Unit,
     onNavigateToAnalytics: () -> Unit,
     onOpenBackupDialog: () -> Unit,
+    onOpenSettings: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -67,27 +68,11 @@ fun DashboardScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "Trading Journal",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 20.sp
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = "V1",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
+                    Text(
+                        text = "Trading Journal",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp
+                    )
                 },
                 actions = {
                     IconButton(
@@ -97,10 +82,10 @@ fun DashboardScreen(
                         Icon(Icons.Default.Share, contentDescription = "Export CSV", tint = MaterialTheme.colorScheme.primary)
                     }
                     IconButton(
-                        onClick = onOpenBackupDialog,
-                        modifier = Modifier.testTag("action_backup_dialog")
+                        onClick = onOpenSettings,
+                        modifier = Modifier.testTag("action_settings")
                     ) {
-                        Icon(Icons.Default.SettingsBackupRestore, contentDescription = "Backup & Tools")
+                        Icon(Icons.Default.Settings, contentDescription = "Settings & Preferences")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
@@ -159,12 +144,12 @@ fun DashboardScreen(
                             )
                             Spacer(modifier = Modifier.height(16.dp))
                             Button(
-                                onClick = { viewModel.loadSampleData() },
-                                modifier = Modifier.testTag("load_sample_data_button")
+                                onClick = onNavigateToAddTrade,
+                                modifier = Modifier.testTag("button_start_trading")
                             ) {
-                                Icon(Icons.Default.AutoFixHigh, contentDescription = null)
+                                Icon(Icons.Default.Add, contentDescription = null)
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Load Sample Trades")
+                                Text("Log Your First Trade")
                             }
                         }
                     }

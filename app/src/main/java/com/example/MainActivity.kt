@@ -6,6 +6,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -17,14 +18,17 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.model.ThemeMode
 import com.example.ui.screens.*
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.viewmodel.TradeViewModel
+import com.example.util.SettingsManager
 
 sealed class Screen {
     object Dashboard : Screen()
     object History : Screen()
     object Analytics : Screen()
+    object Settings : Screen()
     data class AddEdit(val tradeId: Long? = null) : Screen()
     data class Detail(val tradeId: Long) : Screen()
 }
@@ -32,7 +36,8 @@ sealed class Screen {
 enum class NavigationTab(val label: String, val icon: ImageVector, val tag: String) {
     DASHBOARD("Dashboard", Icons.Default.Dashboard, "tab_dashboard"),
     HISTORY("Trades", Icons.Default.FormatListBulleted, "tab_trades"),
-    ANALYTICS("Analytics", Icons.Default.BarChart, "tab_analytics")
+    ANALYTICS("Analytics", Icons.Default.BarChart, "tab_analytics"),
+    SETTINGS("Settings", Icons.Default.Settings, "tab_settings")
 }
 
 class MainActivity : ComponentActivity() {
@@ -40,17 +45,44 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val settingsManager = SettingsManager.getInstance(applicationContext)
         enableEdgeToEdge()
         setContent {
-            MyApplicationTheme {
-                TradingJournalApp(viewModel = viewModel)
+            val colorTheme by settingsManager.colorTheme.collectAsState()
+            val themeMode by settingsManager.themeMode.collectAsState()
+            val isDark = when (themeMode) {
+                ThemeMode.DARK -> true
+                ThemeMode.LIGHT -> false
+                ThemeMode.SYSTEM -> isSystemInDarkTheme()
+            }
+            val isAppLockEnabled by settingsManager.isAppLockEnabled.collectAsState()
+            val isAppUnlocked by settingsManager.isAppUnlocked.collectAsState()
+
+            MyApplicationTheme(
+                darkTheme = isDark,
+                appColorTheme = colorTheme
+            ) {
+                if (isAppLockEnabled && !isAppUnlocked) {
+                    AppLockScreen(
+                        settingsManager = settingsManager,
+                        onUnlocked = { settingsManager.unlockApp() }
+                    )
+                } else {
+                    TradingJournalApp(
+                        viewModel = viewModel,
+                        settingsManager = settingsManager
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-fun TradingJournalApp(viewModel: TradeViewModel) {
+fun TradingJournalApp(
+    viewModel: TradeViewModel,
+    settingsManager: SettingsManager
+) {
     var backStack by remember { mutableStateOf<List<Screen>>(listOf(Screen.Dashboard)) }
     val currentScreen = backStack.lastOrNull() ?: Screen.Dashboard
 
@@ -74,6 +106,7 @@ fun TradingJournalApp(viewModel: TradeViewModel) {
             is Screen.Dashboard -> currentTab = NavigationTab.DASHBOARD
             is Screen.History -> currentTab = NavigationTab.HISTORY
             is Screen.Analytics -> currentTab = NavigationTab.ANALYTICS
+            is Screen.Settings -> currentTab = NavigationTab.SETTINGS
             else -> {}
         }
     }
@@ -84,6 +117,7 @@ fun TradingJournalApp(viewModel: TradeViewModel) {
             is Screen.Dashboard -> currentTab = NavigationTab.DASHBOARD
             is Screen.History -> currentTab = NavigationTab.HISTORY
             is Screen.Analytics -> currentTab = NavigationTab.ANALYTICS
+            is Screen.Settings -> currentTab = NavigationTab.SETTINGS
             else -> {}
         }
     }
@@ -94,11 +128,12 @@ fun TradingJournalApp(viewModel: TradeViewModel) {
             NavigationTab.DASHBOARD -> Screen.Dashboard
             NavigationTab.HISTORY -> Screen.History
             NavigationTab.ANALYTICS -> Screen.Analytics
+            NavigationTab.SETTINGS -> Screen.Settings
         }
         backStack = listOf(screen)
     }
 
-    val isRootTab = currentScreen is Screen.Dashboard || currentScreen is Screen.History || currentScreen is Screen.Analytics
+    val isRootTab = currentScreen is Screen.Dashboard || currentScreen is Screen.History || currentScreen is Screen.Analytics || currentScreen is Screen.Settings
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -135,7 +170,8 @@ fun TradingJournalApp(viewModel: TradeViewModel) {
                         onNavigateToAddTrade = { navigateTo(Screen.AddEdit()) },
                         onNavigateToHistory = { switchTab(NavigationTab.HISTORY) },
                         onNavigateToAnalytics = { switchTab(NavigationTab.ANALYTICS) },
-                        onOpenBackupDialog = { showBackupDialog = true }
+                        onOpenBackupDialog = { showBackupDialog = true },
+                        onOpenSettings = { switchTab(NavigationTab.SETTINGS) }
                     )
                 }
                 is Screen.History -> {
@@ -148,6 +184,13 @@ fun TradingJournalApp(viewModel: TradeViewModel) {
                 is Screen.Analytics -> {
                     AnalyticsScreen(
                         viewModel = viewModel,
+                        onNavigateBack = { switchTab(NavigationTab.DASHBOARD) }
+                    )
+                }
+                is Screen.Settings -> {
+                    SettingsScreen(
+                        viewModel = viewModel,
+                        settingsManager = settingsManager,
                         onNavigateBack = { switchTab(NavigationTab.DASHBOARD) }
                     )
                 }

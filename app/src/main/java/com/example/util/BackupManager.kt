@@ -23,7 +23,7 @@ object BackupManager {
         val root = JSONObject()
         root.put("version", 1)
         root.put("timestamp", System.currentTimeMillis())
-        root.put("appName", "Trading Journal V1")
+        root.put("appName", "Trading Journal")
 
         val array = JSONArray()
         for (t in trades) {
@@ -74,9 +74,61 @@ object BackupManager {
         val backupFile = File(exportDir, "Trading_Journal_Backup_$dateStamp.json")
 
         FileWriter(backupFile).use { writer ->
-            writer.write(root.toString(2))
+            writer.write(exportBackupToJson(trades))
         }
         backupFile
+    }
+
+    fun exportBackupToJson(trades: List<TradeEntity>): String {
+        val root = JSONObject()
+        root.put("version", 1)
+        root.put("timestamp", System.currentTimeMillis())
+        root.put("appName", "Trading Journal")
+
+        val array = JSONArray()
+        for (t in trades) {
+            val obj = JSONObject().apply {
+                put("id", t.id)
+                put("instrument", t.instrument)
+                put("strikeOrSymbol", t.strikeOrSymbol)
+                put("optionType", t.optionType)
+                put("direction", t.direction)
+                put("entryPrice", t.entryPrice)
+                put("slPrice", t.slPrice)
+                put("target1", t.target1)
+                put("target2", t.target2)
+                put("target3", t.target3)
+                put("exitPrice", t.exitPrice)
+                put("quantity", t.quantity)
+                put("grossPnL", t.grossPnL)
+                put("charges", t.charges)
+                put("netPnL", t.netPnL)
+                put("points", t.points)
+                put("riskAmount", t.riskAmount)
+                put("plannedRR", t.plannedRR)
+                put("actualRR", t.actualRR)
+                put("status", t.status)
+                put("setup", t.setup)
+
+                val indArray = JSONArray()
+                t.indicators.forEach { indArray.put(it) }
+                put("indicators", indArray)
+
+                put("emotion", t.emotion)
+                put("mistake", t.mistake)
+                put("notes", t.notes)
+
+                val imgArray = JSONArray()
+                t.imageUris.forEach { imgArray.put(it) }
+                put("imageUris", imgArray)
+
+                put("entryTimestamp", t.entryTimestamp)
+                put("exitTimestamp", t.exitTimestamp)
+            }
+            array.put(obj)
+        }
+        root.put("trades", array)
+        return root.toString(2)
     }
 
     fun shareBackupFile(context: Context, file: File) {
@@ -109,8 +161,11 @@ object BackupManager {
                 }
             }
         }
+        parseBackupJson(stringBuilder.toString())
+    }
 
-        val root = JSONObject(stringBuilder.toString())
+    fun parseBackupJson(jsonString: String): List<TradeEntity> {
+        val root = JSONObject(jsonString)
         val tradesArray = root.getJSONArray("trades")
         val restoredList = mutableListOf<TradeEntity>()
 
@@ -164,6 +219,6 @@ object BackupManager {
             )
             restoredList.add(trade)
         }
-        restoredList
+        return restoredList
     }
 }

@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -16,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.TradeEntity
@@ -29,6 +31,7 @@ import com.example.ui.viewmodel.TradeViewModel
 import com.example.util.TradeCalculations
 import java.text.DateFormatSymbols
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -234,7 +237,6 @@ fun TradeListScreen(
                     items(filteredTrades, key = { it.id }) { trade ->
                         TradeItemCard(
                             trade = trade,
-                            dateStr = dateFormatter.format(Date(trade.entryTimestamp)),
                             onClick = { onNavigateToTradeDetail(trade.id) }
                         )
                     }
@@ -250,12 +252,23 @@ fun TradeListScreen(
 @Composable
 fun TradeItemCard(
     trade: TradeEntity,
-    dateStr: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val isProfit = trade.netPnL >= 0
     val pnlColor = if (isProfit) ProfitGreen else LossRed
+
+    val entryCal = remember(trade.entryTimestamp) {
+        Calendar.getInstance().apply { timeInMillis = trade.entryTimestamp }
+    }
+    val currentYear = remember { Calendar.getInstance().get(Calendar.YEAR) }
+    val tradeYear = entryCal.get(Calendar.YEAR)
+    val isPastYear = tradeYear < currentYear
+
+    val dayStr = remember(trade.entryTimestamp) { SimpleDateFormat("dd", Locale.getDefault()).format(Date(trade.entryTimestamp)) }
+    val monthStr = remember(trade.entryTimestamp) { SimpleDateFormat("MMM", Locale.getDefault()).format(Date(trade.entryTimestamp)).uppercase() }
+    val yearStr = remember(trade.entryTimestamp) { SimpleDateFormat("yyyy", Locale.getDefault()).format(Date(trade.entryTimestamp)) }
+    val timeStr = remember(trade.entryTimestamp) { SimpleDateFormat("hh:mm a", Locale.getDefault()).format(Date(trade.entryTimestamp)) }
 
     Card(
         modifier = modifier
@@ -266,131 +279,194 @@ fun TradeItemCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = CardDefaults.outlinedCardBorder()
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            // Header row: Date, Status badge, and Camera attachment indicator
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Dedicated Date Column
+            Box(
+                modifier = Modifier
+                    .width(68.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(
+                        if (isPastYear) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                    )
+                    .border(
+                        1.dp,
+                        if (isPastYear) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                        else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                        RoundedCornerShape(10.dp)
+                    )
+                    .padding(vertical = 8.dp, horizontal = 4.dp),
+                contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = dateStr,
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    if (trade.imageUris.isNotEmpty()) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .padding(horizontal = 5.dp, vertical = 2.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Image,
-                                contentDescription = "Charts attached",
-                                modifier = Modifier.size(12.dp),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(modifier = Modifier.width(3.dp))
-                            Text(
-                                "${trade.imageUris.size}",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
-                    StatusBadge(status = trade.status)
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = dayStr,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = monthStr,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = yearStr,
+                        fontSize = 10.sp,
+                        fontWeight = if (isPastYear) FontWeight.Bold else FontWeight.Medium,
+                        color = if (isPastYear) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = timeStr,
+                        fontSize = 8.5.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.width(12.dp))
 
-            // Instrument, Strike, Direction & Net PnL row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        DirectionBadge(direction = trade.direction, optionType = trade.optionType)
-                        Spacer(modifier = Modifier.width(8.dp))
+            // Main Trade Details Section
+            Column(modifier = Modifier.weight(1f)) {
+                // Top status and images row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (isPastYear) {
                         Text(
-                            text = trade.strikeOrSymbol,
+                            text = "Historical ($yearStr)",
+                            fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    } else {
+                        Text(
+                            text = trade.instrument,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "${trade.instrument} • Qty: ${trade.quantity}",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        if (trade.imageUris.isNotEmpty()) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                                    .padding(horizontal = 4.dp, vertical = 1.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Image,
+                                    contentDescription = "Charts attached",
+                                    modifier = Modifier.size(11.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.width(2.dp))
+                                Text(
+                                    "${trade.imageUris.size}",
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                        StatusBadge(status = trade.status)
+                    }
                 }
 
-                // P&L
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        text = TradeCalculations.formatCurrency(trade.netPnL),
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = pnlColor
-                    )
-                    Text(
-                        text = TradeCalculations.formatPoints(trade.points),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (trade.points >= 0) ProfitGreen else LossRed
-                    )
-                }
-            }
+                Spacer(modifier = Modifier.height(4.dp))
 
-            Spacer(modifier = Modifier.height(10.dp))
-            Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Footer row: Entry -> Exit, R:R, Setup tag
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        "₹${trade.entryPrice} → ₹${trade.exitPrice}",
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    if (trade.actualRR != 0.0) {
-                        Spacer(modifier = Modifier.width(8.dp))
+                // Direction & Strike + PnL
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            DirectionBadge(direction = trade.direction, optionType = trade.optionType)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = trade.strikeOrSymbol,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            "• R:R ${TradeCalculations.formatRR(trade.actualRR)}",
+                            text = "Qty: ${trade.quantity} • ₹${trade.entryPrice} → ₹${trade.exitPrice}",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    // P&L
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(
+                            text = TradeCalculations.formatCurrency(trade.netPnL),
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = pnlColor
+                        )
+                        Text(
+                            text = TradeCalculations.formatPoints(trade.points),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (trade.points >= 0) ProfitGreen else LossRed
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // Footer row: R:R, Setup tag
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (trade.actualRR != 0.0) {
+                        Text(
+                            "R:R ${TradeCalculations.formatRR(trade.actualRR)}",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.primary
                         )
+                    } else {
+                        Spacer(modifier = Modifier.width(1.dp))
                     }
-                }
 
-                if (trade.setup.isNotBlank()) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = trade.setup,
-                            fontSize = 10.sp,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+                    if (trade.setup.isNotBlank()) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = trade.setup,
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
                     }
                 }
             }

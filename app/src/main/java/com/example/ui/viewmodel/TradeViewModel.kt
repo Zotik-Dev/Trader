@@ -21,7 +21,6 @@ import com.example.model.SetupPerformance
 import com.example.model.TradingSummary
 import com.example.util.BackupManager
 import com.example.util.CsvExporter
-import com.example.util.SampleTradeData
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -356,11 +355,10 @@ class TradeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun loadSampleData() {
+    fun insertRestoredTrades(trades: List<TradeEntity>) {
         viewModelScope.launch {
-            val samples = SampleTradeData.generateSampleTrades()
-            repository.insertTrades(samples)
-            _userMessage.value = "Loaded ${samples.size} sample trades!"
+            repository.insertTrades(trades)
+            _userMessage.value = "Restored ${trades.size} trades!"
         }
     }
 

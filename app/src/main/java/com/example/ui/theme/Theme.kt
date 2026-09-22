@@ -9,16 +9,17 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
+import com.example.model.AppColorTheme
 
-private val DarkColorScheme = darkColorScheme(
-    primary = ProfitGreen,
+fun getDarkColorScheme(colorTheme: AppColorTheme = AppColorTheme.EMERALD) = darkColorScheme(
+    primary = colorTheme.primaryColor,
     onPrimary = TradeBgDark,
-    primaryContainer = ProfitGreenBg,
-    onPrimaryContainer = ProfitGreen,
-    secondary = ElectricBlue,
+    primaryContainer = colorTheme.containerColor,
+    onPrimaryContainer = colorTheme.primaryColor,
+    secondary = colorTheme.secondaryColor,
     onSecondary = TradeBgDark,
-    secondaryContainer = ElectricBlueBg,
-    onSecondaryContainer = ElectricBlue,
+    secondaryContainer = colorTheme.secondaryColor.copy(alpha = 0.15f),
+    onSecondaryContainer = colorTheme.secondaryColor,
     tertiary = AmberGold,
     background = TradeBgDark,
     surface = TradeSurfaceDark,
@@ -32,15 +33,15 @@ private val DarkColorScheme = darkColorScheme(
     onError = TextPrimaryDark
 )
 
-private val LightColorScheme = lightColorScheme(
-    primary = ProfitGreen,
+fun getLightColorScheme(colorTheme: AppColorTheme = AppColorTheme.EMERALD) = lightColorScheme(
+    primary = colorTheme.primaryColor,
     onPrimary = TradeSurfaceLight,
-    primaryContainer = ProfitGreenBg,
-    onPrimaryContainer = ProfitGreen,
-    secondary = ElectricBlue,
+    primaryContainer = colorTheme.containerColor,
+    onPrimaryContainer = colorTheme.primaryColor,
+    secondary = colorTheme.secondaryColor,
     onSecondary = TradeSurfaceLight,
-    secondaryContainer = ElectricBlueBg,
-    onSecondaryContainer = ElectricBlue,
+    secondaryContainer = colorTheme.secondaryColor.copy(alpha = 0.15f),
+    onSecondaryContainer = colorTheme.secondaryColor,
     tertiary = AmberGold,
     background = TradeBgLight,
     surface = TradeSurfaceLight,
@@ -57,7 +58,8 @@ private val LightColorScheme = lightColorScheme(
 @Composable
 fun MyApplicationTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = false, // We prioritize our sleek trading theme
+    appColorTheme: AppColorTheme = AppColorTheme.EMERALD,
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
@@ -65,8 +67,8 @@ fun MyApplicationTheme(
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
+        darkTheme -> getDarkColorScheme(appColorTheme)
+        else -> getLightColorScheme(appColorTheme)
     }
 
     MaterialTheme(
@@ -75,3 +77,4 @@ fun MyApplicationTheme(
         content = content
     )
 }
+

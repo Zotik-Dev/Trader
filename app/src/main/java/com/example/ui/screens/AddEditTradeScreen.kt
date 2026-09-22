@@ -29,9 +29,13 @@ import com.example.model.*
 import com.example.ui.components.DirectionBadge
 import com.example.ui.components.ImageAttachmentSection
 import com.example.ui.components.StatusBadge
+import com.example.ui.components.TradeDateTimePickerDialog
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.TradeViewModel
 import com.example.util.TradeCalculations
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -73,6 +77,12 @@ fun AddEditTradeScreen(
     var selectedMistake by remember { mutableStateOf(existingTrade?.mistake ?: "None (Followed Plan)") }
     var notes by remember { mutableStateOf(existingTrade?.notes ?: "") }
     var attachedImages by remember { mutableStateOf(existingTrade?.imageUris ?: emptyList()) }
+
+    // Trade execution date & time (supports custom dates from last year or any date)
+    var entryTimestamp by remember { mutableLongStateOf(existingTrade?.entryTimestamp ?: System.currentTimeMillis()) }
+    var exitTimestamp by remember { mutableLongStateOf(existingTrade?.exitTimestamp ?: System.currentTimeMillis()) }
+    var showEntryDateTimePicker by remember { mutableStateOf(false) }
+    var showExitDateTimePicker by remember { mutableStateOf(false) }
 
     var isAdvancedTargetsVisible by remember { mutableStateOf(target2Str.isNotBlank() || target3Str.isNotBlank()) }
 
@@ -216,6 +226,230 @@ fun AddEditTradeScreen(
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.primary
                             )
+                        }
+                    }
+                }
+            }
+
+            // 0. Trade Date & Execution Time (Supports historical entries, last year, or custom date)
+            item {
+                val dateDisplayFormatter = remember { SimpleDateFormat("EEE, dd MMM yyyy", Locale.getDefault()) }
+                val timeDisplayFormatter = remember { SimpleDateFormat("hh:mm a", Locale.getDefault()) }
+                val entryCal = remember(entryTimestamp) { Calendar.getInstance().apply { timeInMillis = entryTimestamp } }
+                val currentYear = remember { Calendar.getInstance().get(Calendar.YEAR) }
+                val entryYear = entryCal.get(Calendar.YEAR)
+                val isHistorical = entryYear < currentYear
+                val lastYear = currentYear - 1
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("card_trade_date_time"),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = CardDefaults.outlinedCardBorder()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Default.CalendarToday,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    "TRADE EXECUTION DATE & TIME",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    letterSpacing = 1.sp
+                                )
+                            }
+
+                            if (isHistorical) {
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = "Historical Entry ($entryYear)",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                        }
+
+                        // Interactive Date Box
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                .border(
+                                    1.dp,
+                                    if (isHistorical) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                                    RoundedCornerShape(10.dp)
+                                )
+                                .clickable { showEntryDateTimePicker = true }
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    "Entry Date & Time:",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = dateDisplayFormatter.format(entryTimestamp),
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "• ${timeDisplayFormatter.format(entryTimestamp)}",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+
+                            FilledTonalButton(
+                                onClick = { showEntryDateTimePicker = true },
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.testTag("button_change_trade_date")
+                            ) {
+                                Icon(Icons.Default.EditCalendar, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Change", fontSize = 12.sp)
+                            }
+                        }
+
+                        // Quick Presets Row: Today, Yesterday, Last Year
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            // Today Preset
+                            item {
+                                FilterChip(
+                                    selected = !isHistorical && entryCal.get(Calendar.DAY_OF_YEAR) == Calendar.getInstance().get(Calendar.DAY_OF_YEAR) && entryCal.get(Calendar.YEAR) == currentYear,
+                                    onClick = {
+                                        val now = Calendar.getInstance()
+                                        val updated = Calendar.getInstance().apply {
+                                            timeInMillis = entryTimestamp
+                                            set(Calendar.YEAR, now.get(Calendar.YEAR))
+                                            set(Calendar.MONTH, now.get(Calendar.MONTH))
+                                            set(Calendar.DAY_OF_MONTH, now.get(Calendar.DAY_OF_MONTH))
+                                        }
+                                        entryTimestamp = updated.timeInMillis
+                                    },
+                                    label = { Text("Today", fontSize = 11.sp) }
+                                )
+                            }
+
+                            // Yesterday Preset
+                            item {
+                                FilterChip(
+                                    selected = !isHistorical && entryCal.get(Calendar.DAY_OF_YEAR) == Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -1) }.get(Calendar.DAY_OF_YEAR),
+                                    onClick = {
+                                        val yesterday = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -1) }
+                                        val updated = Calendar.getInstance().apply {
+                                            timeInMillis = entryTimestamp
+                                            set(Calendar.YEAR, yesterday.get(Calendar.YEAR))
+                                            set(Calendar.MONTH, yesterday.get(Calendar.MONTH))
+                                            set(Calendar.DAY_OF_MONTH, yesterday.get(Calendar.DAY_OF_MONTH))
+                                        }
+                                        entryTimestamp = updated.timeInMillis
+                                    },
+                                    label = { Text("Yesterday", fontSize = 11.sp) }
+                                )
+                            }
+
+                            // Last Year Preset
+                            item {
+                                FilterChip(
+                                    selected = entryYear == lastYear,
+                                    onClick = {
+                                        val updated = Calendar.getInstance().apply {
+                                            timeInMillis = entryTimestamp
+                                            set(Calendar.YEAR, lastYear)
+                                        }
+                                        entryTimestamp = updated.timeInMillis
+                                    },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.History, contentDescription = null, modifier = Modifier.size(14.dp))
+                                    },
+                                    label = { Text("Last Year ($lastYear)", fontSize = 11.sp) }
+                                )
+                            }
+
+                            // Custom Pick
+                            item {
+                                FilterChip(
+                                    selected = showEntryDateTimePicker,
+                                    onClick = { showEntryDateTimePicker = true },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.CalendarMonth, contentDescription = null, modifier = Modifier.size(14.dp))
+                                    },
+                                    label = { Text("Pick Custom Date...", fontSize = 11.sp) }
+                                )
+                            }
+                        }
+
+                        // Optional Exit Date & Time for closed / exited trades
+                        val hasExitPrice = exitPriceStr.toDoubleOrNull()?.let { it > 0 } == true
+                        if (hasExitPrice || selectedStatus != "OPEN") {
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable { showExitDateTimePicker = true }
+                                    .padding(vertical = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(
+                                        "Exit Date & Time:",
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        text = "${dateDisplayFormatter.format(exitTimestamp)} • ${timeDisplayFormatter.format(exitTimestamp)}",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+
+                                TextButton(onClick = { showExitDateTimePicker = true }) {
+                                    Icon(Icons.Default.Schedule, contentDescription = null, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Set Exit Time", fontSize = 11.sp)
+                                }
+                            }
                         }
                     }
                 }
@@ -1158,8 +1392,8 @@ fun AddEditTradeScreen(
                             mistake = selectedMistake,
                             notes = notes,
                             imageUris = attachedImages,
-                            entryTimestamp = existingTrade?.entryTimestamp ?: System.currentTimeMillis(),
-                            exitTimestamp = if (parsedExit > 0) System.currentTimeMillis() else (existingTrade?.exitTimestamp ?: System.currentTimeMillis())
+                            entryTimestamp = entryTimestamp,
+                            exitTimestamp = if (parsedExit > 0) exitTimestamp else (existingTrade?.exitTimestamp ?: entryTimestamp)
                         )
 
                         viewModel.saveTrade(tradeToSave) {
@@ -1184,5 +1418,33 @@ fun AddEditTradeScreen(
                 Spacer(modifier = Modifier.height(24.dp))
             }
         }
+    }
+
+    // Interactive Date & Time Picker Dialogs
+    if (showEntryDateTimePicker) {
+        TradeDateTimePickerDialog(
+            initialTimestamp = entryTimestamp,
+            title = "Set Trade Entry Date & Time",
+            onDismiss = { showEntryDateTimePicker = false },
+            onConfirm = { chosenTimestamp ->
+                entryTimestamp = chosenTimestamp
+                if (exitTimestamp < chosenTimestamp) {
+                    exitTimestamp = chosenTimestamp + (30 * 60 * 1000)
+                }
+                showEntryDateTimePicker = false
+            }
+        )
+    }
+
+    if (showExitDateTimePicker) {
+        TradeDateTimePickerDialog(
+            initialTimestamp = exitTimestamp,
+            title = "Set Trade Exit Date & Time",
+            onDismiss = { showExitDateTimePicker = false },
+            onConfirm = { chosenTimestamp ->
+                exitTimestamp = chosenTimestamp
+                showExitDateTimePicker = false
+            }
+        )
     }
 }
