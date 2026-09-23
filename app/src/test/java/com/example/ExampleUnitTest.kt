@@ -134,4 +134,48 @@ class ExampleUnitTest {
         assertEquals(250.0, t2.entryPrice, 0.001)
         assertEquals(220.0, t2.exitPrice, 0.001)
     }
+
+    @Test
+    fun testZerodhaBrokerTradebookFormat() {
+        val brokerCsv = """
+            Symbol,Trade time,Order ID,Trade ID,Type,Qty.,Price,Expiry
+            SENSEX2640272600PE BSE,2026-04-01 09:57:39,1775017461332291728,1892980,BUY,20,130.00,2026-04-02
+        """.trimIndent()
+
+        val result = com.example.util.CsvImporter.parseCsvLines(brokerCsv.lines())
+        assertEquals(1, result.importedTrades.size)
+
+        val trade = result.importedTrades[0]
+        assertEquals("SENSEX", trade.instrument)
+        assertEquals("PE", trade.optionType)
+        assertEquals("BUY", trade.direction)
+        assertEquals(130.0, trade.entryPrice, 0.001)
+        assertEquals(20, trade.quantity)
+        assertTrue(trade.strikeOrSymbol.contains("Sensex", ignoreCase = true) && trade.strikeOrSymbol.contains("72600"))
+        assertTrue("Trade notes should contain order ID", trade.notes.contains("1775017461332291728"))
+    }
+
+    @Test
+    fun testZerodhaPairingBuyAndSellRows() {
+        val pairedCsv = """
+            Symbol,Trade time,Order ID,Trade ID,Type,Qty.,Price,Expiry
+            SENSEX2640272600PE,2026-04-01 09:57:39,1775017461332291728,1892980,BUY,20,130.00,2026-04-02
+            SENSEX2640272600PE,2026-04-01 10:15:20,1775017461339898989,1899120,SELL,20,155.00,2026-04-02
+        """.trimIndent()
+
+        val result = com.example.util.CsvImporter.parseCsvLines(pairedCsv.lines())
+        assertEquals(1, result.importedTrades.size)
+
+        val completedTrade = result.importedTrades[0]
+        assertEquals("SENSEX", completedTrade.instrument)
+        assertEquals("PE", completedTrade.optionType)
+        assertEquals("BUY", completedTrade.direction)
+        assertEquals(130.0, completedTrade.entryPrice, 0.001)
+        assertEquals(155.0, completedTrade.exitPrice, 0.001)
+        assertEquals(20, completedTrade.quantity)
+        assertEquals(25.0, completedTrade.points, 0.001)
+        assertEquals(500.0, completedTrade.grossPnL, 0.001)
+        assertEquals(460.0, completedTrade.netPnL, 0.001)
+        assertEquals("CLOSED", completedTrade.status)
+    }
 }
