@@ -21,6 +21,7 @@ import com.example.model.SetupPerformance
 import com.example.model.TradingSummary
 import com.example.util.BackupManager
 import com.example.util.CsvExporter
+import com.example.util.CsvImporter
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -418,6 +419,28 @@ class TradeViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 e.printStackTrace()
                 _userMessage.value = "Failed to restore backup: ${e.localizedMessage}"
+            }
+        }
+    }
+
+    fun importFromCsv(context: Context, uri: Uri) {
+        viewModelScope.launch {
+            try {
+                val result = CsvImporter.importTradesFromCsvUri(context, uri)
+                if (result.importedTrades.isNotEmpty()) {
+                    repository.insertTrades(result.importedTrades)
+                    val msg = if (result.failedRows > 0) {
+                        "Imported ${result.importedTrades.size} trades successfully (${result.failedRows} skipped rows)."
+                    } else {
+                        "Successfully imported ${result.importedTrades.size} trades from CSV!"
+                    }
+                    _userMessage.value = msg
+                } else {
+                    _userMessage.value = result.errorMessage ?: "No trades could be imported from CSV."
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _userMessage.value = "Failed to import CSV: ${e.localizedMessage}"
             }
         }
     }

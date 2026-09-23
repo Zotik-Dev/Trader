@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -67,6 +69,13 @@ fun TradeListScreen(
     }
 
     val dateFormatter = remember { SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    val importCsvLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let { viewModel.importFromCsv(context, it) }
+    }
 
     Scaffold(
         topBar = {
@@ -76,6 +85,20 @@ fun TradeListScreen(
                         "Trade History (${filteredTrades.size})",
                         fontWeight = FontWeight.Bold
                     )
+                },
+                actions = {
+                    IconButton(
+                        onClick = { importCsvLauncher.launch("*/*") },
+                        modifier = Modifier.testTag("action_import_csv_history")
+                    ) {
+                        Icon(Icons.Default.UploadFile, contentDescription = "Import CSV")
+                    }
+                    IconButton(
+                        onClick = { viewModel.exportToCsv(context) },
+                        modifier = Modifier.testTag("action_export_csv_history")
+                    ) {
+                        Icon(Icons.Default.Download, contentDescription = "Export CSV")
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )

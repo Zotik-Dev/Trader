@@ -37,6 +37,15 @@ fun BackupExportDialog(
         }
     }
 
+    val importCsvLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            viewModel.importFromCsv(context, uri)
+            onDismiss()
+        }
+    }
+
     Dialog(onDismissRequest = onDismiss) {
         Card(
             shape = RoundedCornerShape(18.dp),
@@ -82,6 +91,17 @@ fun BackupExportDialog(
                         onDismiss()
                     },
                     tag = "dialog_export_csv"
+                )
+
+                // CSV Import
+                ToolOption(
+                    icon = Icons.Default.UploadFile,
+                    title = "Import from CSV File",
+                    subtitle = "Load trades from CSV with date, time, call/put, strike, prices, and quantities",
+                    onClick = {
+                        importCsvLauncher.launch("*/*")
+                    },
+                    tag = "dialog_import_csv"
                 )
 
                 // JSON Backup

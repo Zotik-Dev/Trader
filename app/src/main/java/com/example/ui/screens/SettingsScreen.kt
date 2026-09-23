@@ -66,6 +66,12 @@ fun SettingsScreen(
         uri?.let { viewModel.restoreBackup(context, it) }
     }
 
+    val importCsvLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let { viewModel.importFromCsv(context, it) }
+    }
+
     val dateFormatter = remember { SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()) }
 
     Scaffold(
@@ -443,6 +449,17 @@ fun SettingsScreen(
                             Icon(Icons.Default.FileUpload, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Restore from JSON Backup File")
+                        }
+
+                        OutlinedButton(
+                            onClick = { importCsvLauncher.launch("*/*") },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("button_import_csv")
+                        ) {
+                            Icon(Icons.Default.UploadFile, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Import Trades from CSV File")
                         }
 
                         OutlinedButton(
