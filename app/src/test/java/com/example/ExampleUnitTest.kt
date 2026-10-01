@@ -178,4 +178,66 @@ class ExampleUnitTest {
         assertEquals(460.0, completedTrade.netPnL, 0.001)
         assertEquals("CLOSED", completedTrade.status)
     }
+
+    @Test
+    fun testTradingPlatformsResolution() {
+        assertEquals(com.example.model.TradingPlatform.ZERODHA, com.example.model.TradingPlatform.fromString("Zerodha"))
+        assertEquals(com.example.model.TradingPlatform.GROWW, com.example.model.TradingPlatform.fromString("Groww"))
+        assertEquals(com.example.model.TradingPlatform.SAHI, com.example.model.TradingPlatform.fromString("Sahi"))
+        assertEquals(com.example.model.TradingPlatform.SAHI, com.example.model.TradingPlatform.fromString("Shoonya / Sahi"))
+        assertEquals(com.example.model.TradingPlatform.DHAN, com.example.model.TradingPlatform.fromString("Dhan"))
+    }
+
+    @Test
+    fun testFundCalculationsNetCapital() {
+        val txs = listOf(
+            com.example.data.FundTransactionEntity(
+                id = 1,
+                platform = "Zerodha",
+                type = "CREDIT",
+                amount = 100000.0,
+                timestamp = System.currentTimeMillis()
+            ),
+            com.example.data.FundTransactionEntity(
+                id = 2,
+                platform = "Zerodha",
+                type = "DEBIT",
+                amount = 25000.0,
+                timestamp = System.currentTimeMillis()
+            ),
+            com.example.data.FundTransactionEntity(
+                id = 3,
+                platform = "Groww",
+                type = "CREDIT",
+                amount = 50000.0,
+                timestamp = System.currentTimeMillis()
+            ),
+            com.example.data.FundTransactionEntity(
+                id = 4,
+                platform = "Dhan",
+                type = "CREDIT",
+                amount = 75000.0,
+                timestamp = System.currentTimeMillis()
+            ),
+            com.example.data.FundTransactionEntity(
+                id = 5,
+                platform = "Sahi",
+                type = "CREDIT",
+                amount = 30000.0,
+                timestamp = System.currentTimeMillis()
+            )
+        )
+
+        val totalCredited = txs.filter { it.type == "CREDIT" }.sumOf { it.amount }
+        val totalDebited = txs.filter { it.type == "DEBIT" }.sumOf { it.amount }
+        val netCapital = totalCredited - totalDebited
+
+        assertEquals(255000.0, totalCredited, 0.001)
+        assertEquals(25000.0, totalDebited, 0.001)
+        assertEquals(230000.0, netCapital, 0.001)
+
+        val zerodhaCredited = txs.filter { it.platform == "Zerodha" && it.type == "CREDIT" }.sumOf { it.amount }
+        val zerodhaDebited = txs.filter { it.platform == "Zerodha" && it.type == "DEBIT" }.sumOf { it.amount }
+        assertEquals(75000.0, zerodhaCredited - zerodhaDebited, 0.001)
+    }
 }

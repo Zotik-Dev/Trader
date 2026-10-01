@@ -7,6 +7,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.data.FundTransactionEntity
 import com.example.data.TradeDatabase
 import com.example.data.TradeEntity
 import com.example.data.TradeRepository
@@ -14,10 +15,14 @@ import com.example.model.DateFilter
 import com.example.model.DailyPnL
 import com.example.model.Emotion
 import com.example.model.EmotionPerformance
+import com.example.model.FundTransactionType
 import com.example.model.InstrumentPerformance
 import com.example.model.MonthlyPnL
 import com.example.model.YearlyPnL
+import com.example.model.PlatformFundSummary
 import com.example.model.SetupPerformance
+import com.example.model.TotalFundsSummary
+import com.example.model.TradingPlatform
 import com.example.model.TradingSummary
 import com.example.util.BackupManager
 import com.example.util.CsvExporter
@@ -52,7 +57,7 @@ class TradeViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         val database = TradeDatabase.getInstance(application)
-        repository = TradeRepository(database.tradeDao())
+        repository = TradeRepository(database.tradeDao(), database.fundTransactionDao())
     }
 
     val allTrades: StateFlow<List<TradeEntity>> = repository.allTrades
@@ -61,6 +66,163 @@ class TradeViewModel(application: Application) : AndroidViewModel(application) {
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptyList()
         )
+
+    // --- Fund Transactions (Broker Credit / Debit) ---
+    val allFundTransactions: StateFlow<List<FundTransactionEntity>> = repository.allFundTransactions
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    private val _fundPlatformFilter = MutableStateFlow("All")
+    val fundPlatformFilter: StateFlow<String> = _fundPlatformFilter.asStateFlow()
+
+    private val _fundTypeFilter = MutableStateFlow("All")
+    val fundTypeFilter: StateFlow<String> = _fundTypeFilter.asStateFlow()
+
+    private val _fundSearchQuery = MutableStateFlow("")
+    val fundSearchQuery: StateFlow<String> = _fundSearchQuery.asStateFlow()
+
+    val filteredFundTransactions: StateFlow<List<FundTransactionEntity>> = combine(
+        allFundTransactions,
+        _fundPlatformFilter,
+        _fundTypeFilter,
+        _fundSearchQuery
+    ) { list, platform, type, query ->
+        list.filter { tx ->
+            val matchPlatform = if (platform == "All") true else tx.platform.equals(platform, ignoreCase = true)
+            val matchType = if (type == "All") true else tx.type.equals(type, ignoreCase = true)
+            val matchQuery = if (query.isBlank()) true else {
+                tx.platform.contains(query, ignoreCase = true) ||
+                tx.notes.contains(query, ignoreCase = true) ||
+                tx.referenceNumber.contains(query, ignoreCase = true) ||
+                tx.amount.toString().contains(query)
+            }
+            matchPlatform && matchType && matchQuery
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val totalFundsSummary: StateFlow<TotalFundsSummary> = allFundTransactions.map { list ->
+        computeFundsSummary(list)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = TotalFundsSummary(0.0, 0.0, 0.0, 0, emptyList())
+    )
+
+    fun setFundPlatformFilter(platform: String) {
+        _fundPlatformFilter.value = platform
+    }
+
+    fun setFundTypeFilter(type: String) {
+        _fundTypeFilter.value = type
+    }
+
+    fun setFundSearchQuery(query: String) {
+        _fundSearchQuery.value = query
+    }
+
+    fun saveFundTransaction(
+        id: Long = 0L,
+        platform: String,
+        type: String,
+        amount: Double,
+        timestamp: Long,
+        paymentMode: String = "UPI",
+        referenceNumber: String = "",
+        notes: String = ""
+    ) {
+        viewModelScope.launch {
+            val entity = FundTransactionEntity(
+                id = id,
+                platform = platform.trim(),
+                type = type.trim().uppercase(),
+                amount = amount,
+                timestamp = timestamp,
+                paymentMode = paymentMode.trim(),
+                referenceNumber = referenceNumber.trim(),
+                notes = notes.trim()
+            )
+            if (id == 0L) {
+                repository.insertFundTransaction(entity)
+                val typeLabel = if (type.equals("CREDIT", ignoreCase = true)) "credited to" else "debited from"
+                _userMessage.value = "₹${amount.toLong()} $typeLabel $platform recorded!"
+            } else {
+                repository.updateFundTransaction(entity)
+                _userMessage.value = "Transaction updated successfully!"
+            }
+        }
+    }
+
+    fun deleteFundTransaction(id: Long) {
+        viewModelScope.launch {
+            repository.deleteFundTransactionById(id)
+            _userMessage.value = "Fund transaction deleted"
+        }
+    }
+
+    fun exportFundsToCsv(context: Context) {
+        viewModelScope.launch {
+            val list = allFundTransactions.value
+            if (list.isEmpty()) {
+                _userMessage.value = "No fund transactions to export"
+                return@launch
+            }
+            try {
+                val file = CsvExporter.exportFundsToCsv(context, list)
+                CsvExporter.shareCsvFile(context, file)
+                _userMessage.value = "Funds ledger CSV exported!"
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _userMessage.value = "Failed to export CSV: ${e.localizedMessage}"
+            }
+        }
+    }
+
+    private fun computeFundsSummary(transactions: List<FundTransactionEntity>): TotalFundsSummary {
+        var totalCredited = 0.0
+        var totalDebited = 0.0
+
+        for (tx in transactions) {
+            if (tx.type.equals("CREDIT", ignoreCase = true)) {
+                totalCredited += tx.amount
+            } else if (tx.type.equals("DEBIT", ignoreCase = true)) {
+                totalDebited += tx.amount
+            }
+        }
+
+        val netCapital = totalCredited - totalDebited
+
+        // Ensure key requested platforms (Zerodha, Groww, Sahi, Dhan) always appear prominently
+        val corePlatforms = listOf("Zerodha", "Groww", "Sahi", "Dhan")
+        val otherPlatformsInData = transactions.map { it.platform }.distinct()
+            .filter { name -> corePlatforms.none { it.equals(name, ignoreCase = true) } }
+
+        val allPlatformNames = (corePlatforms + otherPlatformsInData).distinct()
+
+        val platformSummaries = allPlatformNames.map { platformName ->
+            val pTx = transactions.filter { it.platform.equals(platformName, ignoreCase = true) }
+            val credited = pTx.filter { it.type.equals("CREDIT", ignoreCase = true) }.sumOf { it.amount }
+            val debited = pTx.filter { it.type.equals("DEBIT", ignoreCase = true) }.sumOf { it.amount }
+            PlatformFundSummary(
+                platformName = platformName,
+                tradingPlatform = TradingPlatform.fromString(platformName),
+                totalCredited = credited,
+                totalDebited = debited,
+                netCapital = credited - debited,
+                transactionCount = pTx.size
+            )
+        }
+
+        return TotalFundsSummary(
+            totalCredited = totalCredited,
+            totalDebited = totalDebited,
+            netCapital = netCapital,
+            totalTransactions = transactions.size,
+            platformSummaries = platformSummaries
+        )
+    }
 
     private val _filters = MutableStateFlow(TradeFilterState())
 

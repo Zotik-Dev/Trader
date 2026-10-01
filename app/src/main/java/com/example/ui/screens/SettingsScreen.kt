@@ -50,14 +50,10 @@ fun SettingsScreen(
     val themeMode by settingsManager.themeMode.collectAsState()
     val isAppLockEnabled by settingsManager.isAppLockEnabled.collectAsState()
     val hasPinSet by settingsManager.hasPinSet.collectAsState()
-    val cloudAccount by settingsManager.cloudAccount.collectAsState()
     val allTrades by viewModel.allTrades.collectAsState()
 
     var showPinSetupDialog by remember { mutableStateOf(false) }
     var showChangePinDialog by remember { mutableStateOf(false) }
-    var showGoogleSignInDialog by remember { mutableStateOf(false) }
-    var showFacebookSignInDialog by remember { mutableStateOf(false) }
-    var showRestoreCloudConfirm by remember { mutableStateOf(false) }
     var showClearConfirm by remember { mutableStateOf(false) }
 
     val restoreFileLauncher = rememberLauncherForActivityResult(
@@ -257,175 +253,7 @@ fun SettingsScreen(
                 }
             }
 
-            // Section 5: Cloud Backup (Sign in with Google, Facebook)
-            item {
-                SettingsSectionCard(title = "CLOUD BACKUP & SIGN IN", icon = Icons.Default.CloudSync) {
-                    Text(
-                        "Sign in to automatically sync and safely back up your trading journal across devices:",
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    if (cloudAccount == null) {
-                        // Sign in Buttons (Google & Facebook)
-                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            // Google Sign In
-                            Button(
-                                onClick = { showGoogleSignInDialog = true },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .testTag("button_signin_google"),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFF4285F4),
-                                    contentColor = Color.White
-                                ),
-                                shape = RoundedCornerShape(10.dp)
-                            ) {
-                                Text("G", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Text("Sign In with Google (Gmail)", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                            }
-
-                            // Facebook Sign In
-                            Button(
-                                onClick = { showFacebookSignInDialog = true },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .testTag("button_signin_facebook"),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFF1877F2),
-                                    contentColor = Color.White
-                                ),
-                                shape = RoundedCornerShape(10.dp)
-                            ) {
-                                Text("f", fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Text("Sign In with Facebook", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                            }
-                        }
-                    } else {
-                        val account = cloudAccount!!
-                        // Connected Account Card
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-                            )
-                        ) {
-                            Column(modifier = Modifier.padding(14.dp)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(46.dp)
-                                            .clip(CircleShape)
-                                            .background(
-                                                if (account.provider == "google") Color(0xFF4285F4)
-                                                else Color(0xFF1877F2)
-                                            ),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            if (account.provider == "google") "G" else "f",
-                                            color = Color.White,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 22.sp
-                                        )
-                                    }
-
-                                    Spacer(modifier = Modifier.width(12.dp))
-
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            account.displayName,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 15.sp
-                                        )
-                                        Text(
-                                            account.email,
-                                            fontSize = 12.sp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                        Text(
-                                            "Connected via ${if (account.provider == "google") "Google" else "Facebook"}",
-                                            fontSize = 11.sp,
-                                            color = MaterialTheme.colorScheme.primary,
-                                            fontWeight = FontWeight.Medium
-                                        )
-                                    }
-
-                                    IconButton(
-                                        onClick = {
-                                            settingsManager.signOutCloud()
-                                            Toast.makeText(context, "Signed out of Cloud Backup", Toast.LENGTH_SHORT).show()
-                                        },
-                                        modifier = Modifier.testTag("button_signout_cloud")
-                                    ) {
-                                        Icon(Icons.Default.ExitToApp, contentDescription = "Sign Out", tint = LossRed)
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.height(12.dp))
-
-                                if (account.lastBackupTimestamp > 0) {
-                                    Text(
-                                        "Last Cloud Sync: ${dateFormatter.format(Date(account.lastBackupTimestamp))} (${account.lastBackupTradeCount} trades)",
-                                        fontSize = 11.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                } else {
-                                    Text(
-                                        "No cloud backup created yet",
-                                        fontSize = 11.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.height(12.dp))
-
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    Button(
-                                        onClick = {
-                                            val backupJson = BackupManager.exportBackupToJson(allTrades)
-                                            settingsManager.saveCloudBackup(backupJson, allTrades.size)
-                                            Toast.makeText(context, "Successfully backed up ${allTrades.size} trades to Cloud!", Toast.LENGTH_SHORT).show()
-                                        },
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .testTag("button_save_cloud_backup"),
-                                        shape = RoundedCornerShape(8.dp)
-                                    ) {
-                                        Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp))
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text("Save to Cloud", fontSize = 12.sp)
-                                    }
-
-                                    OutlinedButton(
-                                        onClick = { showRestoreCloudConfirm = true },
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .testTag("button_restore_cloud_backup"),
-                                        shape = RoundedCornerShape(8.dp)
-                                    ) {
-                                        Icon(Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(16.dp))
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text("Restore Cloud", fontSize = 12.sp)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Section 6: Offline Export & Tools
+            // Section 5: Offline Export & Tools
             item {
                 SettingsSectionCard(title = "OFFLINE BACKUP & DATA EXPORT", icon = Icons.Default.SaveAlt) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -471,6 +299,17 @@ fun SettingsScreen(
                             Icon(Icons.Default.TableChart, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Export Trades to CSV / Excel")
+                        }
+
+                        OutlinedButton(
+                            onClick = { viewModel.exportFundsToCsv(context) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("button_export_funds_csv_settings")
+                        ) {
+                            Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Export Broker Funds Ledger to CSV")
                         }
 
                         TextButton(
@@ -593,174 +432,6 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showChangePinDialog = false }) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
-
-    // Google Sign In Dialog
-    if (showGoogleSignInDialog) {
-        var gmailInput by remember { mutableStateOf("sheikazeesphotos@gmail.com") }
-        var nameInput by remember { mutableStateOf("Trader Sheikh") }
-
-        AlertDialog(
-            onDismissRequest = { showGoogleSignInDialog = false },
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFF4285F4)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("G", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                    }
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text("Sign In with Google")
-                }
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Connect your Gmail account to enable secure cloud backups:", fontSize = 13.sp)
-                    OutlinedTextField(
-                        value = gmailInput,
-                        onValueChange = { gmailInput = it },
-                        label = { Text("Gmail Address") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = nameInput,
-                        onValueChange = { nameInput = it },
-                        label = { Text("Display Name") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (gmailInput.isNotBlank()) {
-                            settingsManager.signInWithGoogle(gmailInput.trim(), nameInput.ifBlank { "Google User" })
-                            showGoogleSignInDialog = false
-                            Toast.makeText(context, "Connected with Google Account!", Toast.LENGTH_SHORT).show()
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4285F4))
-                ) {
-                    Text("Sign In & Connect")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showGoogleSignInDialog = false }) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
-
-    // Facebook Sign In Dialog
-    if (showFacebookSignInDialog) {
-        var fbNameInput by remember { mutableStateOf("Trader Profile") }
-        var fbEmailInput by remember { mutableStateOf("user.facebook@meta.com") }
-
-        AlertDialog(
-            onDismissRequest = { showFacebookSignInDialog = false },
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFF1877F2)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("f", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-                    }
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text("Sign In with Facebook")
-                }
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Connect with Facebook to back up and restore your journal records:", fontSize = 13.sp)
-                    OutlinedTextField(
-                        value = fbNameInput,
-                        onValueChange = { fbNameInput = it },
-                        label = { Text("Facebook Name") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = fbEmailInput,
-                        onValueChange = { fbEmailInput = it },
-                        label = { Text("Facebook Email / Phone") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (fbNameInput.isNotBlank()) {
-                            settingsManager.signInWithFacebook(fbNameInput.trim(), fbEmailInput.trim())
-                            showFacebookSignInDialog = false
-                            Toast.makeText(context, "Connected with Facebook Account!", Toast.LENGTH_SHORT).show()
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1877F2))
-                ) {
-                    Text("Sign In & Connect")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showFacebookSignInDialog = false }) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
-
-    // Restore from Cloud Confirmation
-    if (showRestoreCloudConfirm) {
-        AlertDialog(
-            onDismissRequest = { showRestoreCloudConfirm = false },
-            title = { Text("Restore from Cloud?") },
-            text = {
-                Text("This will restore trades saved in your cloud backup into your journal. Existing trades will be preserved.", fontSize = 14.sp)
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val cloudJson = settingsManager.getCloudBackupJson()
-                        if (cloudJson.isNullOrEmpty()) {
-                            Toast.makeText(context, "No cloud backup found. Please create a backup first.", Toast.LENGTH_LONG).show()
-                        } else {
-                            try {
-                                val restoredTrades = BackupManager.parseBackupJson(cloudJson)
-                                if (restoredTrades.isNotEmpty()) {
-                                    // Insert into repository via viewModel
-                                    viewModel.insertRestoredTrades(restoredTrades)
-                                    Toast.makeText(context, "Restored ${restoredTrades.size} trades from Cloud!", Toast.LENGTH_SHORT).show()
-                                } else {
-                                    Toast.makeText(context, "No trades found in cloud backup.", Toast.LENGTH_SHORT).show()
-                                }
-                            } catch (e: Exception) {
-                                Toast.makeText(context, "Failed to restore: ${e.message}", Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                        showRestoreCloudConfirm = false
-                    }
-                ) {
-                    Text("Confirm Restore")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showRestoreCloudConfirm = false }) {
                     Text("Cancel")
                 }
             }

@@ -91,4 +91,37 @@ object CsvExporter {
         chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         context.startActivity(chooser)
     }
+
+    suspend fun exportFundsToCsv(context: Context, transactions: List<com.example.data.FundTransactionEntity>): File = withContext(Dispatchers.IO) {
+        val exportDir = File(context.cacheDir, "shared_exports").apply { mkdirs() }
+        val dateStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+        val csvFile = File(exportDir, "Broker_Funds_Ledger_$dateStamp.csv")
+
+        FileWriter(csvFile).use { writer ->
+            writer.append("ID,Date,Time,Trading Platform,Transaction Type,Amount (INR),Payment Mode,Reference / UTR,Notes\n")
+            fun escape(str: String): String {
+                var s = str.replace("\"", "\"\"")
+                if (s.contains(",") || s.contains("\n") || s.contains("\"")) {
+                    s = "\"$s\""
+                }
+                return s
+            }
+
+            for (t in transactions) {
+                val dateStr = dateFormatter.format(Date(t.timestamp))
+                val timeStr = timeFormatter.format(Date(t.timestamp))
+                val typeStr = if (t.type.equals("CREDIT", ignoreCase = true)) "CREDITED (Deposit)" else "DEBITED (Withdrawal)"
+                writer.append("${t.id},")
+                writer.append("$dateStr,")
+                writer.append("$timeStr,")
+                writer.append("${escape(t.platform)},")
+                writer.append("${escape(typeStr)},")
+                writer.append("${t.amount},")
+                writer.append("${escape(t.paymentMode)},")
+                writer.append("${escape(t.referenceNumber)},")
+                writer.append("${escape(t.notes)}\n")
+            }
+        }
+        csvFile
+    }
 }

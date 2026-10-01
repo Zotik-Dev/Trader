@@ -27,6 +27,7 @@ import com.example.util.SettingsManager
 sealed class Screen {
     object Dashboard : Screen()
     object History : Screen()
+    object Funds : Screen()
     object Analytics : Screen()
     object Settings : Screen()
     data class AddEdit(val tradeId: Long? = null) : Screen()
@@ -36,6 +37,7 @@ sealed class Screen {
 enum class NavigationTab(val label: String, val icon: ImageVector, val tag: String) {
     DASHBOARD("Dashboard", Icons.Default.Dashboard, "tab_dashboard"),
     HISTORY("Trades", Icons.Default.FormatListBulleted, "tab_trades"),
+    FUNDS("Funds", Icons.Default.AccountBalanceWallet, "tab_funds"),
     ANALYTICS("Analytics", Icons.Default.BarChart, "tab_analytics"),
     SETTINGS("Settings", Icons.Default.Settings, "tab_settings")
 }
@@ -105,6 +107,7 @@ fun TradingJournalApp(
         when (val top = backStack.lastOrNull()) {
             is Screen.Dashboard -> currentTab = NavigationTab.DASHBOARD
             is Screen.History -> currentTab = NavigationTab.HISTORY
+            is Screen.Funds -> currentTab = NavigationTab.FUNDS
             is Screen.Analytics -> currentTab = NavigationTab.ANALYTICS
             is Screen.Settings -> currentTab = NavigationTab.SETTINGS
             else -> {}
@@ -116,6 +119,7 @@ fun TradingJournalApp(
         when (screen) {
             is Screen.Dashboard -> currentTab = NavigationTab.DASHBOARD
             is Screen.History -> currentTab = NavigationTab.HISTORY
+            is Screen.Funds -> currentTab = NavigationTab.FUNDS
             is Screen.Analytics -> currentTab = NavigationTab.ANALYTICS
             is Screen.Settings -> currentTab = NavigationTab.SETTINGS
             else -> {}
@@ -127,13 +131,14 @@ fun TradingJournalApp(
         val screen = when (tab) {
             NavigationTab.DASHBOARD -> Screen.Dashboard
             NavigationTab.HISTORY -> Screen.History
+            NavigationTab.FUNDS -> Screen.Funds
             NavigationTab.ANALYTICS -> Screen.Analytics
             NavigationTab.SETTINGS -> Screen.Settings
         }
         backStack = listOf(screen)
     }
 
-    val isRootTab = currentScreen is Screen.Dashboard || currentScreen is Screen.History || currentScreen is Screen.Analytics || currentScreen is Screen.Settings
+    val isRootTab = currentScreen is Screen.Dashboard || currentScreen is Screen.History || currentScreen is Screen.Funds || currentScreen is Screen.Analytics || currentScreen is Screen.Settings
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -149,7 +154,7 @@ fun TradingJournalApp(
                             selected = isSelected,
                             onClick = { switchTab(tab) },
                             icon = { Icon(tab.icon, contentDescription = tab.label) },
-                            label = { Text(tab.label, fontSize = 12.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
+                            label = { Text(tab.label, fontSize = 11.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
                             modifier = Modifier.testTag(tab.tag)
                         )
                     }
@@ -171,7 +176,8 @@ fun TradingJournalApp(
                         onNavigateToHistory = { switchTab(NavigationTab.HISTORY) },
                         onNavigateToAnalytics = { switchTab(NavigationTab.ANALYTICS) },
                         onOpenBackupDialog = { showBackupDialog = true },
-                        onOpenSettings = { switchTab(NavigationTab.SETTINGS) }
+                        onOpenSettings = { switchTab(NavigationTab.SETTINGS) },
+                        onNavigateToFunds = { switchTab(NavigationTab.FUNDS) }
                     )
                 }
                 is Screen.History -> {
@@ -179,6 +185,12 @@ fun TradingJournalApp(
                         viewModel = viewModel,
                         onNavigateToTradeDetail = { tradeId -> navigateTo(Screen.Detail(tradeId)) },
                         onNavigateToAddTrade = { navigateTo(Screen.AddEdit()) }
+                    )
+                }
+                is Screen.Funds -> {
+                    FundsScreen(
+                        viewModel = viewModel,
+                        onNavigateBack = { switchTab(NavigationTab.DASHBOARD) }
                     )
                 }
                 is Screen.Analytics -> {

@@ -38,6 +38,7 @@ fun DashboardScreen(
     onNavigateToAnalytics: () -> Unit,
     onOpenBackupDialog: () -> Unit,
     onOpenSettings: () -> Unit = {},
+    onNavigateToFunds: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -46,6 +47,7 @@ fun DashboardScreen(
     val instrumentAnalytics by viewModel.instrumentAnalytics.collectAsState()
     val setupAnalytics by viewModel.setupAnalytics.collectAsState()
     val allTrades by viewModel.allTrades.collectAsState()
+    val totalFundsSummary by viewModel.totalFundsSummary.collectAsState()
     val dateFilter by viewModel.dateFilter.collectAsState()
     val selectedYear by viewModel.selectedYear.collectAsState()
     val selectedMonth by viewModel.selectedMonth.collectAsState()
@@ -322,6 +324,101 @@ fun DashboardScreen(
                                 color = ProfitGreen
                             )
                         }
+                    }
+                }
+            }
+
+            // Broker Funds & Ledger Quick Card (Zerodha, Groww, Sahi, Dhan)
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .clickable { onNavigateToFunds() }
+                        .testTag("card_dashboard_funds_overview"),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = CardDefaults.outlinedCardBorder()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Default.AccountBalanceWallet,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "BROKER CAPITAL & FUNDS",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    letterSpacing = 1.sp
+                                )
+                            }
+                            Text(
+                                text = "Manage Funds →",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    "Net Broker Capital",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    TradeCalculations.formatCurrency(totalFundsSummary.netCapital),
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = if (totalFundsSummary.netCapital >= 0) MaterialTheme.colorScheme.onSurface else LossRed
+                                )
+                            }
+
+                            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text("Credited", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(
+                                        "+${TradeCalculations.formatCurrency(totalFundsSummary.totalCredited)}",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = ProfitGreen
+                                    )
+                                }
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text("Debited", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(
+                                        "-${TradeCalculations.formatCurrency(totalFundsSummary.totalDebited)}",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = LossRed
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "Platforms: Zerodha • Groww • Sahi • Dhan",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }

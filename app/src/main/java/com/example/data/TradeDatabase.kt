@@ -7,13 +7,14 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 
 @Database(
-    entities = [TradeEntity::class],
-    version = 1,
+    entities = [TradeEntity::class, FundTransactionEntity::class],
+    version = 2,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
 abstract class TradeDatabase : RoomDatabase() {
     abstract fun tradeDao(): TradeDao
+    abstract fun fundTransactionDao(): FundTransactionDao
 
     companion object {
         @Volatile
